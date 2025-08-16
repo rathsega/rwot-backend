@@ -1,0 +1,1406 @@
+[
+  {
+    "prompt": "Create a screen with Tab and the tab name as Collateral",
+    "response": {
+      "templateType": "hybrid",
+      "hybridTabs": [
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Collateral",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with 2 Tabs and the tab name as Collateral,Loans",
+    "response": {
+      "templateType": "hybrid",
+      "hybridTabs": [
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Collateral",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        },
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Loans",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with 3 Tabs and the tab name as Collateral,Loan,Loan Details",
+    "response": {
+      "templateType": "hybrid",
+      "hybridTabs": [
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Collateral",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        },
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Loan",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        },
+        {
+          "api": {
+            "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+            "saveApi": {
+              "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            },
+            "fetchApi": {
+              "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+              "callType": "",
+              "endPoint": "",
+              "formattedJson": {}
+            }
+          },
+          "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+          "route": "",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                "buttoName": "",
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "tabName": "Loan Details",
+          "isVisible": 1,
+          "showCount": false,
+          "screenName": "",
+          "screenType": "dynamic",
+          "searchCount": false,
+          "staticScreen": false,
+          "defaultLandingAfterClose": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with Accordion and name it as Address Details",
+    "response": {
+      "templateType": "accordion",
+      "accordionList": [
+        {
+          "type": "accordion",
+          "uuid": "face81c0-3848-43af-8636-dffc3f1da1a5",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "7c58c114-8f36-4ca5-b875-b1727ae94e08",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "32bb02cf-25d3-4423-a7c7-e27b8b1088f7",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 0,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "96da9174-f6b3-4291-b071-5f76cbdcf73d",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonTopRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "e095f679-5539-497a-8c85-449272786852",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "isVisible": 1,
+          "parentCss": "",
+          "repeatedData": "",
+          "accordionName": "Address Details",
+          "hideForNavigation": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with 2 Accordion and name them as Address Details, Verification",
+    "response": {
+      "templateType": "accordion",
+      "accordionList": [
+        {
+          "type": "accordion",
+          "uuid": "face81c0-3848-43af-8636-dffc3f1da1a5",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "7c58c114-8f36-4ca5-b875-b1727ae94e08",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "32bb02cf-25d3-4423-a7c7-e27b8b1088f7",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 0,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "96da9174-f6b3-4291-b071-5f76cbdcf73d",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonTopRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "e095f679-5539-497a-8c85-449272786852",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "isVisible": 1,
+          "parentCss": "",
+          "repeatedData": "",
+          "accordionName": "Address Details",
+          "hideForNavigation": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        },
+        {
+            "type": "accordion",
+            "uuid": "face81c0-3848-43af-8636-dffc3f1da1a5",
+            "seqNo": 1,
+            "buttons": {
+              "uuid": "7c58c114-8f36-4ca5-b875-b1727ae94e08",
+              "buttonLefts": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "32bb02cf-25d3-4423-a7c7-e27b8b1088f7",
+                  "buttoName": "",
+                  "isVisible": 0,
+                  "isreadOnly": 1,
+                  "readOnly": 0,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ],
+              "buttonRights": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "96da9174-f6b3-4291-b071-5f76cbdcf73d",
+                  "buttoName": "",
+                  "isVisible": 0,
+                  "isreadOnly": 1,
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ],
+              "buttonTopRights": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "e095f679-5539-497a-8c85-449272786852",
+                  "buttoName": "",
+                  "isVisible": 0,
+                  "isreadOnly": 1,
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ]
+            },
+            "isVisible": 1,
+            "parentCss": "",
+            "repeatedData": "",
+            "accordionName": "Verification",
+            "hideForNavigation": false,
+            "readOnly": 1,
+            "ismandatory": 0,
+            "isvisible": 1
+          }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with Section and name it as Personal Details",
+    "response": {
+      "templateType": "sectionList",
+      "sectionList":[
+        {
+          "type": "fields",
+          "uuid": "10cb11b9-86c7-409c-bb03-a2cb35900bc8",
+          "label": "Personal Details",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "431833b7-4987-4abb-b23e-413e83e9ae0a",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "534e392c-feca-4941-a0c9-4684df5250b9",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 0,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "696cf5af-1170-4127-b6e8-5de7ca82e4fe",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonTopRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "b2d7c6db-22de-40b1-b471-3154aab509f2",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "isVisible": 1,
+          "parentCss": "form-row",
+          "hideForNavigation": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with Section and name it as Personal Details and insert 2 fields inside the section with field names as First Name and Last Name",
+    "response": {
+      "templateType": "sectionList",
+      "sectionList":[
+        {
+          "type": "fields",
+          "uuid": "10cb11b9-86c7-409c-bb03-a2cb35900bc8",
+          "label": "Personal Details",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "431833b7-4987-4abb-b23e-413e83e9ae0a",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "534e392c-feca-4941-a0c9-4684df5250b9",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 0,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "696cf5af-1170-4127-b6e8-5de7ca82e4fe",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonTopRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "b2d7c6db-22de-40b1-b471-3154aab509f2",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "fields": [
+            {
+              "id": 9176355270180,
+              "css": "col-30",
+              "max": 10,
+              "min": 5,
+              "name": "firstName",
+              "type": "input",
+              "uuid": "56477266-b788-4329-930d-0f5c5c1eb823",
+              "icons": {
+                "prefix": {},
+                "suffix": {}
+              },
+              "label": "First Name",
+              "seqNo": 1,
+              "options": [],
+              "readOnly": 1,
+              "component": false,
+              "inputType": "alphaNum",
+              "isvisible": 1,
+              "lookupKey": null,
+              "dateFormat": "",
+              "entityName": "fName",
+              "ismandatory": 0,
+              "validations": [
+                {
+                  "name": "required",
+                  "message": "is required.",
+                  "validator": "required"
+                }
+              ],
+              "componentType": "fields",
+              "defaultOption": null,
+              "optionFormula": [],
+              "staticOptions": false,
+              "paginationParams": [],
+              "hideForNavigation": false
+            },
+            {
+                "id": 9176355270180,
+                "css": "col-30",
+                "max": 10,
+                "min": 5,
+                "name": "lastName",
+                "type": "input",
+                "uuid": "56477266-b788-4329-930d-0f5c5c1eb823",
+                "icons": {
+                  "prefix": {},
+                  "suffix": {}
+                },
+                "label": "Last Name",
+                "seqNo": 1,
+                "options": [],
+                "readOnly": 1,
+                "component": false,
+                "inputType": "alphaNum",
+                "isvisible": 1,
+                "lookupKey": null,
+                "dateFormat": "",
+                "entityName": "lName",
+                "ismandatory": 0,
+                "validations": [
+                  {
+                    "name": "required",
+                    "message": "is required.",
+                    "validator": "required"
+                  }
+                ],
+                "componentType": "fields",
+                "defaultOption": null,
+                "optionFormula": [],
+                "staticOptions": false,
+                "paginationParams": [],
+                "hideForNavigation": false
+            }
+          ],
+          "isVisible": 1,
+          "parentCss": "form-row",
+          "hideForNavigation": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with Section and name it as Personal Details and insert 1 horizontal table inside the section with header names as First Name",
+    "response": {
+      "templateType": "sectionList",
+      "sectionList":[
+        {
+          "type": "fields",
+          "uuid": "10cb11b9-86c7-409c-bb03-a2cb35900bc8",
+          "label": "Personal Details",
+          "seqNo": 1,
+          "buttons": {
+            "uuid": "431833b7-4987-4abb-b23e-413e83e9ae0a",
+            "buttonLefts": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "534e392c-feca-4941-a0c9-4684df5250b9",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 0,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "696cf5af-1170-4127-b6e8-5de7ca82e4fe",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ],
+            "buttonTopRights": [
+              {
+                "css": "",
+                "type": "",
+                "uuid": "b2d7c6db-22de-40b1-b471-3154aab509f2",
+                "buttoName": "",
+                "isVisible": 0,
+                "isreadOnly": 1,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 0
+              }
+            ]
+          },
+          "sections": [
+            {
+                "parentCss": "form-row",
+                "label": "Personal Details Table",
+                "uuid": "54bef654-bafe-42d3-a4b1-bc80a0a180af",
+                "sectionName": "personalDetails",
+                "showSection": true,
+                "type": "tableArray",
+                "seqNo": 4,
+                "isVisible": 1,
+                "isreadOnly": 1,
+                "buttons": {
+                    "uuid": "2a48409f-7923-4592-b098-31bbc3e6750a",
+                    "buttonLefts": [
+                        {
+                            "css": "",
+                            "type": "",
+                            "uuid": "28175f04-0231-4d48-906e-528d23892de9",
+                            "buttoName": "",
+                            "isVisible": 0,
+                            "isreadOnly": 1,
+                            "readOnly": 1,
+                            "ismandatory": 0,
+                            "isvisible": 0
+                        }
+                    ],
+                    "buttonRights": [
+                        {
+                            "css": "",
+                            "type": "",
+                            "uuid": "62e03b18-a44d-4cbf-b040-dfe14f72e429",
+                            "buttoName": "",
+                            "isVisible": 0,
+                            "isreadOnly": 1,
+                            "readOnly": 1,
+                            "ismandatory": 0,
+                            "isvisible": 0
+                        }
+                    ],
+                    "buttonTopRights": [
+                        {
+                            "css": "",
+                            "type": "",
+                            "uuid": "6baceb7f-4620-45ca-a42f-79c77859c5d0",
+                            "buttoName": "",
+                            "isVisible": 0,
+                            "isreadOnly": 1,
+                            "readOnly": 1,
+                            "ismandatory": 0,
+                            "isvisible": 0
+                        }
+                    ]
+                },
+                "tableDetails": {
+                    "name": "Table- TABLE",
+                    "label": "",
+                    "divcss": "common-table-wrap jo-mb-20",
+                    "tablecss": "jo-mb-10 theme-table jo-fi-table-width jo-datatable-with-borders screening-score-card",
+                    "tdata": [],
+                    "uuid": "3706f2fd-c969-4990-aa0a-208058c181a2",
+                    "componentType": "table",
+                    "showrequiredheader": false,
+                    "footerShow": false,
+                    "isVisible": 1,
+                    "isreadOnly": 1,
+                    "addNew": true,
+                    "defaultRow": "true",
+                    "activePagination": false,
+                    "pagination": [],
+                    "paginationUrl": null,
+                    "buttons": {
+                        "uuid": "87c1c962-83c2-4b02-aa4c-ded50f070864",
+                        "buttonLefts": [
+                            {
+                                "css": "",
+                                "type": "",
+                                "uuid": "ce2dd9fc-8bc8-41e5-81ff-60009071ee73",
+                                "buttoName": "",
+                                "isVisible": 0,
+                                "isreadOnly": 1
+                            }
+                        ],
+                        "buttonRights": [
+                            {
+                                "css": "",
+                                "type": "",
+                                "uuid": "a0920a87-7e15-4e34-a481-d8ebd838b396",
+                                "buttoName": "",
+                                "isVisible": 0,
+                                "isreadOnly": 1
+                            }
+                        ],
+                        "buttonTopRights": [
+                            {
+                                "css": "",
+                                "type": "",
+                                "uuid": "6f54a2a5-d64e-4277-8b4a-7bd7db7fffd2",
+                                "buttoName": "",
+                                "isVisible": 0,
+                                "isreadOnly": 1
+                            }
+                        ]
+                    },
+                    "id": 1739113076035,
+                    "theaders": [
+                        {
+                            "name": "First Name",
+                            "uuid": "bb5debf4-bbff-49bf-bcec-34e1284c2b20",
+                            "label": "First Name",
+                            "seqNo": 4,
+                            "isFields": "no",
+                            "formatPipe": null,
+                            "headerName": "fName",
+                            "componentType": "theaders",
+                            "isThFields": "no",
+                            "changeEvent": null,
+                            "showHeader": false,
+                            "sticky": false,
+                            "fields": [],
+                            "tooltip": "",
+                            "aliasName": null,
+                            "screenType": null,
+                            "footerLabel": "",
+                            "footerMethod": "",
+                            "footerReadOnly": 0,
+                            "id": 2628122638530,
+                            "readOnly": 1,
+                            "ismandatory": 0,
+                            "isvisible": 1
+                        }
+                    ]
+                },
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 1
+            }
+        ],
+          "isVisible": 1,
+          "parentCss": "form-row",
+          "hideForNavigation": false,
+          "readOnly": 1,
+          "ismandatory": 0,
+          "isvisible": 1
+        }
+      ],
+      "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with a tab and name it as Collateral and inside the tab create a accordion with name as Address Details and inside the accordion create a section with name as Personal Details and inside the section insert 1 field with label as First Name",
+    "response": {
+        "templateType": "hybrid",
+        "hybridTabs": [
+          {
+            "api": {
+              "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+              "saveApi": {
+                "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+                "callType": "",
+                "endPoint": "",
+                "formattedJson": {
+                  "uuid": "b542d350-d1a3-48d1-a48f-e419d4e7a48a",
+                  "testA": "",
+                  "testB": "",
+                  "testC": "",
+                  "testD": ""
+                }
+              },
+              "fetchApi": {
+                "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+                "callType": "",
+                "endPoint": "",
+                "formattedJson": {
+                  "testA": "",
+                  "testB": "",
+                  "testC": "",
+                  "testD": ""
+                }
+              }
+            },
+            "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+            "route": "",
+            "seqNo": 1,
+            "buttons": {
+              "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+              "buttonLefts": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                  "buttoName": "",
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ],
+              "buttonRights": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                  "buttoName": "",
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ]
+            },
+            "tabName": "Collateral",
+            "isVisible": 1,
+            "showCount": false,
+            "screenName": "",
+            "screenType": "dynamic",
+            "searchCount": false,
+            "staticScreen": false,
+            "accordionList": [
+              {
+                "type": "accordion",
+                "uuid": "face81c0-3848-43af-8636-dffc3f1da1a5",
+                "seqNo": 1,
+                "buttons": {
+                  "uuid": "7c58c114-8f36-4ca5-b875-b1727ae94e08",
+                  "buttonLefts": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "32bb02cf-25d3-4423-a7c7-e27b8b1088f7",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 0,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ],
+                  "buttonRights": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "96da9174-f6b3-4291-b071-5f76cbdcf73d",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 1,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ],
+                  "buttonTopRights": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "e095f679-5539-497a-8c85-449272786852",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 1,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ]
+                },
+                "sections": [
+                  {
+                    "type": "fields",
+                    "uuid": "10cb11b9-86c7-409c-bb03-a2cb35900bc8",
+                    "label": "Personal Details",
+                    "seqNo": 1,
+                    "fields": [
+                      {
+                        "id": 9176355270180,
+                        "css": "col-30",
+                        "max": 10,
+                        "min": 5,
+                        "name": "firstName",
+                        "type": "input",
+                        "uuid": "56477266-b788-4329-930d-0f5c5c1eb823",
+                        "icons": {
+                          "prefix": {},
+                          "suffix": {}
+                        },
+                        "label": "First Name",
+                        "seqNo": 1,
+                        "options": [],
+                        "readOnly": 1,
+                        "component": false,
+                        "inputType": "alphaNum",
+                        "isvisible": 1,
+                        "lookupKey": null,
+                        "dateFormat": "",
+                        "entityName": "fName",
+                        "ismandatory": 0,
+                        "validations": [
+                          {
+                            "name": "required",
+                            "message": "is required.",
+                            "validator": "required"
+                          }
+                        ],
+                        "componentType": "fields",
+                        "defaultOption": null,
+                        "optionFormula": [],
+                        "staticOptions": false,
+                        "paginationParams": [],
+                        "hideForNavigation": false
+                      }
+                    ],
+                    "buttons": {
+                      "uuid": "431833b7-4987-4abb-b23e-413e83e9ae0a",
+                      "buttonLefts": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "534e392c-feca-4941-a0c9-4684df5250b9",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 0,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ],
+                      "buttonRights": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "696cf5af-1170-4127-b6e8-5de7ca82e4fe",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 1,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ],
+                      "buttonTopRights": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "b2d7c6db-22de-40b1-b471-3154aab509f2",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 1,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ]
+                    },
+                    "isVisible": 1,
+                    "parentCss": "form-row",
+                    "hideForNavigation": false,
+                    "readOnly": 1,
+                    "ismandatory": 0,
+                    "isvisible": 1
+                  }
+                ],
+                "isVisible": 1,
+                "parentCss": "",
+                "repeatedData": "",
+                "accordionName": "Address Details",
+                "hideForNavigation": false,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 1
+              }
+            ],
+            "defaultLandingAfterClose": false,
+            "readOnly": 1,
+            "ismandatory": 0,
+            "isvisible": 1
+          }
+        ],
+        "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  },
+  {
+    "prompt": "Create a screen with a tab and name it as Collateral and inside the tab create a accordion with name as Address Details and inside the accordion create a section with name as Personal Details and inside the section insert 1 field with label as Last Name",
+    "response": {
+        "templateType": "hybrid",
+        "hybridTabs": [
+          {
+            "api": {
+              "uuid": "8f057639-bf9c-407d-9fe0-fd563da79ac8",
+              "saveApi": {
+                "uuid": "08ef95e0-2f0b-46bc-84a2-4068e8362385",
+                "callType": "",
+                "endPoint": "",
+                "formattedJson": {
+                  "uuid": "b542d350-d1a3-48d1-a48f-e419d4e7a48a",
+                  "testA": "",
+                  "testB": "",
+                  "testC": "",
+                  "testD": ""
+                }
+              },
+              "fetchApi": {
+                "uuid": "7bb91368-d78b-4d39-ac85-2fa836e28115",
+                "callType": "",
+                "endPoint": "",
+                "formattedJson": {
+                  "testA": "",
+                  "testB": "",
+                  "testC": "",
+                  "testD": ""
+                }
+              }
+            },
+            "uuid": "ba71a0fb-c7c7-435e-ad47-5a4971799ff4",
+            "route": "",
+            "seqNo": 1,
+            "buttons": {
+              "uuid": "a3566f4e-a896-4747-8997-348aacd53107",
+              "buttonLefts": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "571fe8bf-2046-4ae2-9a80-a325867fd630",
+                  "buttoName": "",
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ],
+              "buttonRights": [
+                {
+                  "css": "",
+                  "type": "",
+                  "uuid": "7d5945d3-e6cd-4495-b8f3-7f0bcec11730",
+                  "buttoName": "",
+                  "readOnly": 1,
+                  "ismandatory": 0,
+                  "isvisible": 0
+                }
+              ]
+            },
+            "tabName": "Collateral",
+            "isVisible": 1,
+            "showCount": false,
+            "screenName": "",
+            "screenType": "dynamic",
+            "searchCount": false,
+            "staticScreen": false,
+            "accordionList": [
+              {
+                "type": "accordion",
+                "uuid": "face81c0-3848-43af-8636-dffc3f1da1a5",
+                "seqNo": 1,
+                "buttons": {
+                  "uuid": "7c58c114-8f36-4ca5-b875-b1727ae94e08",
+                  "buttonLefts": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "32bb02cf-25d3-4423-a7c7-e27b8b1088f7",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 0,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ],
+                  "buttonRights": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "96da9174-f6b3-4291-b071-5f76cbdcf73d",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 1,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ],
+                  "buttonTopRights": [
+                    {
+                      "css": "",
+                      "type": "",
+                      "uuid": "e095f679-5539-497a-8c85-449272786852",
+                      "buttoName": "",
+                      "isVisible": 0,
+                      "isreadOnly": 1,
+                      "readOnly": 1,
+                      "ismandatory": 0,
+                      "isvisible": 0
+                    }
+                  ]
+                },
+                "sections": [
+                  {
+                    "type": "fields",
+                    "uuid": "10cb11b9-86c7-409c-bb03-a2cb35900bc8",
+                    "label": "Personal Details",
+                    "seqNo": 1,
+                    "fields": [
+                      {
+                        "id": 9176355270180,
+                        "css": "col-30",
+                        "max": 10,
+                        "min": 5,
+                        "name": "lastName",
+                        "type": "input",
+                        "uuid": "56477266-b788-4329-930d-0f5c5c1eb823",
+                        "icons": {
+                          "prefix": {},
+                          "suffix": {}
+                        },
+                        "label": "Last Name",
+                        "seqNo": 1,
+                        "options": [],
+                        "readOnly": 1,
+                        "component": false,
+                        "inputType": "alphaNum",
+                        "isvisible": 1,
+                        "lookupKey": null,
+                        "dateFormat": "",
+                        "entityName": "lName",
+                        "ismandatory": 0,
+                        "validations": [
+                          {
+                            "name": "required",
+                            "message": "is required.",
+                            "validator": "required"
+                          }
+                        ],
+                        "componentType": "fields",
+                        "defaultOption": null,
+                        "optionFormula": [],
+                        "staticOptions": false,
+                        "paginationParams": [],
+                        "hideForNavigation": false
+                      }
+                    ],
+                    "buttons": {
+                      "uuid": "431833b7-4987-4abb-b23e-413e83e9ae0a",
+                      "buttonLefts": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "534e392c-feca-4941-a0c9-4684df5250b9",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 0,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ],
+                      "buttonRights": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "696cf5af-1170-4127-b6e8-5de7ca82e4fe",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 1,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ],
+                      "buttonTopRights": [
+                        {
+                          "css": "",
+                          "type": "",
+                          "uuid": "b2d7c6db-22de-40b1-b471-3154aab509f2",
+                          "buttoName": "",
+                          "isVisible": 0,
+                          "isreadOnly": 1,
+                          "readOnly": 1,
+                          "ismandatory": 0,
+                          "isvisible": 0
+                        }
+                      ]
+                    },
+                    "isVisible": 1,
+                    "parentCss": "form-row",
+                    "hideForNavigation": false,
+                    "readOnly": 1,
+                    "ismandatory": 0,
+                    "isvisible": 1
+                  }
+                ],
+                "isVisible": 1,
+                "parentCss": "",
+                "repeatedData": "",
+                "accordionName": "Address Details",
+                "hideForNavigation": false,
+                "readOnly": 1,
+                "ismandatory": 0,
+                "isvisible": 1
+              }
+            ],
+            "defaultLandingAfterClose": false,
+            "readOnly": 1,
+            "ismandatory": 0,
+            "isvisible": 1
+          }
+        ],
+        "uuid": "4cee2138-86ee-4abf-8215-ac37ee5826c2"
+    }
+  }
+]
