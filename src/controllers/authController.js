@@ -94,14 +94,8 @@ exports.login = async (req, res) => {
       expiresIn: "7d",
     });
 
-    res
-      .cookie("token", token, {
-        httpOnly: true,
-        secure: false, // set true if using https
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      })
-      .json({ message: "Login successful", user: tokenPayload });
+    // Return token in response body for frontend to store and use in Authorization header
+    res.json({ message: "Login successful", user: tokenPayload, token });
   } catch (err) {
     console.error("Login Error:", err);
     res.status(500).json({ error: "Server error" });
@@ -109,7 +103,12 @@ exports.login = async (req, res) => {
 };
 
 exports.me = async (req, res) => {
-  const token = req.cookies.token;
+  const authHeader = req.headers["authorization"];
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "No token provided" });
+  }
+
+  const token = authHeader.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Not authenticated" });
 
   try {

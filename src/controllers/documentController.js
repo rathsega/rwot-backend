@@ -88,3 +88,24 @@ exports.deleteDocument = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+exports.downloadDocumentNew = async (req, res) => {
+  try {
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, "..", "uploads", filename); // <-- corrected path
+    console.log("Requested file path:", filePath);
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "File not found" });
+    }
+
+    res.download(filePath, err => {
+      if (err) {
+        console.error("Download Error:", err);
+        return res.status(500).json({ error: "Download failed" });
+      }
+    });
+  } catch (err) {
+    console.error("Download Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+}

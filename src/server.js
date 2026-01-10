@@ -22,10 +22,11 @@ const PORT = process.env.PORT || 5001;
 //   origin: "http://localhost:3000", 
 //   credentials: true
 // }));
-const allowedOrigins = ['https://rwot.in', 'https://www.rwot.in'];
+const allowedOrigins = ['https://rwot.in', 'https://www.rwot.in', 'http://localhost:3000'];
 
 app.use(cors({
   origin: function(origin, callback) {
+    console.log(origin);
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, true);
     } else {

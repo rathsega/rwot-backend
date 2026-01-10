@@ -42,4 +42,6 @@ router.get("/download/:filename", verifyToken, documentController.downloadDocume
 // Delete document by caseId
 router.delete("/:id", documentController.deleteDocument);
 
+router.get("/downloadNew/:filename", documentController.downloadDocumentNew);
+
 module.exports = router;

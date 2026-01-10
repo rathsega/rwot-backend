@@ -14,8 +14,8 @@ exports.updateStage = async (req, res) => {
 
     // Update the current stage in the cases table
     await pool.query(
-      "UPDATE cases SET stage = $1, updatedat = $2 WHERE caseid = $3",
-      [stage, updatedAt, caseid]
+      "UPDATE cases SET stage = $1, status = $2, updatedat = $3 WHERE caseid = $4",
+      [stage, stage, updatedAt, caseid]
     );
 
     // Fetch current case details
@@ -35,15 +35,15 @@ exports.updateStage = async (req, res) => {
           [caseid, opsUser.rows[0].id]
         );
       }
-    } else if (stage === "Underwriting") {
+    } else if (stage === "Underwriting" || stage === "Underwriter") {
       // Assigned by Operations to Underwriter
       const uwUser = await pool.query(
         `SELECT id FROM users WHERE roleid = (SELECT id FROM roles WHERE rolename = 'UW') LIMIT 1`
       );
       if (uwUser.rows.length > 0) {
         await pool.query(
-          `INSERT INTO case_assignments (caseid, assigned_to) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [caseid, uwUser.rows[0].id]
+          `INSERT INTO case_assignments (caseid, assigned_to, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+          [caseid, uwUser.rows[0].id, 'UW']
         );
       }
     } else if (stage === "Ready to Share") {

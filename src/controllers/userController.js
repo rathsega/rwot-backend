@@ -7,9 +7,28 @@ exports.getUsersByRole = async (req, res) => {
 
     let query = `
       SELECT u.id, u.name, u.email, u.phone, u.company, r.rolename
+    `;
+
+    // If role is KAM, add case assignment count for today
+    if (role === "KAM") {
+      query += `, 
+        COALESCE(ca_count.assignment_count, 0) as today_assignments
       FROM users u
       JOIN roles r ON u.roleid = r.id
-    `;
+      LEFT JOIN (
+        SELECT assigned_to, COUNT(*) as assignment_count
+        FROM case_assignments 
+        WHERE role = 'KAM' 
+        AND DATE(assigned_date) = CURRENT_DATE
+        GROUP BY assigned_to
+      ) ca_count ON ca_count.assigned_to = u.id
+      `;
+    } else {
+      query += `
+      FROM users u
+      JOIN roles r ON u.roleid = r.id
+      `;
+    }
 
     const values = [];
 

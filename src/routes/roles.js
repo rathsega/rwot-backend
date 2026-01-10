@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const { verifyToken } = require("../middleware/authMiddleware");
 
 // GET /api/roles - Fetch all roles
-router.get('/', async (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM roles ORDER BY id ASC");
     res.json({ roles: result.rows });
