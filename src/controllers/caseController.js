@@ -260,6 +260,13 @@ exports.getCases = async (req, res) => {
       );
       c.hasSpocAdmin = flagResult.rowCount > 0;
 
+      // Fetch product requirements for this case
+      const productReqResult = await pool.query(
+        `SELECT * FROM case_product_requirements WHERE caseid = $1 ORDER BY id`,
+        [c.caseid]
+      );
+      c.product_requirements = productReqResult.rows;
+
       const docsResult = await pool.query(`SELECT * FROM documents WHERE caseid = $1 ORDER BY uploadedat DESC`, [c.caseid]);
       const allDocs = docsResult.rows;
 
@@ -471,7 +478,7 @@ exports.updateCase = async (req, res) => {
 // PATCH: Update only the status field of a case (Banker use)
 exports.updateCaseStatus = async (req, res) => {
   const { caseid } = req.params;
-  const { status, productname, requirement_amount } = req.body;
+  const { status, products, description } = req.body;
 
 
   try {
@@ -490,10 +497,27 @@ exports.updateCaseStatus = async (req, res) => {
       );
     }
 
-    if (productname || requirement_amount) {
+    // Handle multiple products with description
+    if (products && Array.isArray(products) && products.length > 0) {
+      // Delete existing product requirements for this case
+      await pool.query(
+        `DELETE FROM case_product_requirements WHERE caseid = $1`,
+        [caseid]
+      );
+
+      // Insert new product requirements
+      for (const prod of products) {
+        await pool.query(
+          `INSERT INTO case_product_requirements (caseid, productname, requirement_amount, description, created_at)
+           VALUES ($1, $2, $3, $4, NOW())`,
+          [caseid, prod.product, prod.amount, description || null]
+        );
+      }
+
+      // Also update the main case table with the first product for backward compatibility
       await pool.query(
         `UPDATE cases SET productname = $1, requirement_amount = $2 WHERE caseid = $3`,
-        [productname, requirement_amount, caseid]
+        [products[0].product, products[0].amount, caseid]
       );
     }
 
