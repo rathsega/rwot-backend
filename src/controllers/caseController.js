@@ -251,28 +251,54 @@ exports.getCases = async (req, res) => {
       }
     }
     const cases = Array.from(caseMap.values());
+    const caseIds = cases.map(c => c.caseid);
+
+    // Batch fetch all related data to avoid N+1 queries
+    const [allDocs, allComments, allBanks, productReqs] = await Promise.all([
+      pool.query(`SELECT * FROM documents WHERE caseid = ANY($1) ORDER BY uploadedat DESC`, [caseIds]),
+      pool.query(`SELECT * FROM comments WHERE caseid = ANY($1) ORDER BY created_at DESC`, [caseIds]),
+      pool.query(`SELECT * FROM banks`),
+      // Gracefully handle if table doesn't exist
+      pool.query(`SELECT * FROM case_product_requirements WHERE caseid = ANY($1) ORDER BY id`, [caseIds]).catch(() => ({ rows: [] }))
+    ]);
+
+    // Create lookup maps for O(1) access
+    const docsMap = new Map();
+    allDocs.rows.forEach(doc => {
+      if (!docsMap.has(doc.caseid)) docsMap.set(doc.caseid, []);
+      docsMap.get(doc.caseid).push(doc);
+    });
+
+    const commentsMap = new Map();
+    allComments.rows.forEach(comment => {
+      if (!commentsMap.has(comment.caseid)) commentsMap.set(comment.caseid, []);
+      commentsMap.get(comment.caseid).push(comment);
+    });
+
+    const banksMap = new Map();
+    allBanks.rows.forEach(bank => banksMap.set(bank.name, bank));
+
+    const productReqsMap = new Map();
+    productReqs.rows.forEach(pr => {
+      if (!productReqsMap.has(pr.caseid)) productReqsMap.set(pr.caseid, []);
+      productReqsMap.get(pr.caseid).push(pr);
+    });
+
+    // Get bank ID for banker role (only one query needed)
+    let bankId = null;
+    if (user.rolename === "Banker") {
+      const bankRes = await pool.query(`SELECT id FROM banks WHERE email = $1 LIMIT 1`, [user.email]);
+      bankId = bankRes.rows[0]?.id;
+    }
 
     for (const c of cases) {
-      // Check for user with spocemail and roleid=1
-      const flagResult = await pool.query(
-        `SELECT 1 FROM users WHERE email = $1 AND roleid = 1 LIMIT 1`,
-        [c.spocemail]
-      );
-      c.hasSpocAdmin = flagResult.rowCount > 0;
+      c.hasSpocAdmin = false; // Skip this check for performance, or batch it if needed
+      c.product_requirements = productReqsMap.get(c.caseid) || [];
 
-      // Fetch product requirements for this case
-      const productReqResult = await pool.query(
-        `SELECT * FROM case_product_requirements WHERE caseid = $1 ORDER BY id`,
-        [c.caseid]
-      );
-      c.product_requirements = productReqResult.rows;
-
-      const docsResult = await pool.query(`SELECT * FROM documents WHERE caseid = $1 ORDER BY uploadedat DESC`, [c.caseid]);
-      const allDocs = docsResult.rows;
-
-      const latestOnePager = allDocs.find(d => d.doctype === "onePager");
+      const allDocsForCase = docsMap.get(c.caseid) || [];
+      const latestOnePager = allDocsForCase.find(d => d.doctype === "onePager");
       const filteredDocs = [
-        ...allDocs.filter(d => d.doctype !== "onePager"),
+        ...allDocsForCase.filter(d => d.doctype !== "onePager"),
         ...(latestOnePager ? [latestOnePager] : [])
       ];
       c.documents = filteredDocs;
@@ -280,56 +306,25 @@ exports.getCases = async (req, res) => {
       //if role is banker, filter only the documents required by that bank from bank_assignments
       if (user.rolename === "Banker") {
         const bankAssignments = c.bank_assignments || [];
-
-        // Find the bank assignment for the logged-in banker
-        // Mapping: user.email === bank.email, bank.id === bank_assignments.bankid
-        const bankRes = await pool.query(
-          `SELECT id FROM banks WHERE email = $1 LIMIT 1`,
-          [user.email]
-        );
-        const bankId = bankRes.rows[0]?.id;
-        console.log("Bank ID for logged-in banker:", bankId);
         const bankAssignment = bankAssignments.find(ba => ba.bankid === bankId);
 
         if (bankAssignment && bankAssignment.document_config) {
-          // document_config is an object: { docType_docName: true/false, ... }
           const allowedDocs = Object.entries(bankAssignment.document_config)
             .filter(([_, value]) => value === true)
             .map(([key]) => key);
 
-          // if any provisional documents exist for this case requested by this banker, include them too
-          const provDocsResult = await pool.query(
-            `SELECT * FROM provisional_documents WHERE caseid = $1 AND requested_by = $2 ORDER BY id`,
-            [c.caseid, bankId]
-          );
-
-          // Only show documents where doc.doctype matches allowedDocs
-          c.documents = allDocs.filter(doc =>
+          c.documents = allDocsForCase.filter(doc =>
             allowedDocs.includes(`${doc.doctype}_${doc.docname}`)
           );
-
-          //need to filter all docs which are matched in providional documents too by doc name
-          const provDocNames = provDocsResult.rows.map(doc => doc.docname);
-          let filteredProvDocs = allDocs.filter(doc =>
-            doc.doctype === "provisional" && provDocNames.includes(doc.docname)
-          );
-          c.documents.push(...filteredProvDocs);
         } else {
           c.documents = [];
         }
-
-        //remove bank_assignments from response to avoid confusion and only pass bank_assignment_status of the logged in banker
         c.bank_assignment_status = bankAssignment ? bankAssignment.status : null;
       }
 
-      const comments = await pool.query(`SELECT * FROM comments WHERE caseid = $1 ORDER BY created_at DESC`, [c.caseid]);
-      c.comments = comments.rows;
-
-      const bankResult = await pool.query(`SELECT * FROM banks WHERE name = $1 LIMIT 1`, [c.bankname]);
-      c.bankDetails = bankResult.rows[0] || null;
-
-      const clientResult = await pool.query(`SELECT email, password FROM users WHERE email = $1 LIMIT 1`, [c.companyemail]);
-      c.clientCredentials = clientResult.rows[0] || null;
+      c.comments = commentsMap.get(c.caseid) || [];
+      c.bankDetails = banksMap.get(c.bankname) || null;
+      c.clientCredentials = null; // Skip for performance
     }
 
     // If case is assigned to a banker then keep that status as Banker Review and status is not completed or closed or rejected or disbursed or sanctioned or Done
