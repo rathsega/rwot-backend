@@ -135,10 +135,73 @@ RWOT Team`
   }
 };
 
+// Get case counts by status for dashboard tabs
+exports.getCaseCounts = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const userResult = await pool.query(
+      `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
+      [userId]
+    );
+    const user = userResult.rows[0];
+
+    let whereClause = "";
+    let values = [];
+    let paramIndex = 1;
+
+    // Build WHERE clause based on role
+    if (user.rolename === "Individual") {
+      whereClause = ` WHERE c.role = 'Individual' AND LOWER(c.spocemail) = LOWER($${paramIndex})`;
+      values.push(user.email);
+    } else if (user.rolename === "KAM") {
+      whereClause = ` WHERE EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.role = 'KAM' AND ca.assigned_to = $${paramIndex})`;
+      values.push(userId);
+    } else if (user.rolename === "Telecaller") {
+      whereClause = ` WHERE c.createdby = $${paramIndex}`;
+      values.push(userId);
+    } else if (user.rolename === "Operations") {
+      whereClause = ` WHERE LOWER(c.status) IN (
+        'open', 'meeting done', 'documentation initiated', 'documentation in progress', 
+        'underwriting', 'one pager', 'banker review', 'no requirement'
+      )`;
+    }
+    // Admin and UW see all cases (no WHERE clause for counts)
+
+    const countQuery = `
+      SELECT 
+        c.status,
+        COUNT(DISTINCT c.caseid) as count
+      FROM cases c
+      ${whereClause}
+      GROUP BY c.status
+    `;
+
+    const result = await pool.query(countQuery, values);
+    
+    // Convert to object for easier frontend use
+    const counts = {};
+    let total = 0;
+    result.rows.forEach(row => {
+      counts[row.status] = parseInt(row.count, 10);
+      total += parseInt(row.count, 10);
+    });
+    counts.total = total;
+
+    res.json({ counts });
+  } catch (err) {
+    console.error("Get Case Counts Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 // Get cases with documents, comments, and KAM assignment
 exports.getCases = async (req, res) => {
   const userId = req.user.id;
-  const { role } = req.query;
+  const { role, page = 1, pageSize = 50, status: statusFilter } = req.query;
+  const pageNum = parseInt(page, 10) || 1;
+  const pageSizeNum = parseInt(pageSize, 10) || 50;
+  const offset = (pageNum - 1) * pageSizeNum;
+  
   try {
     const userResult = await pool.query(
       `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
@@ -353,7 +416,8 @@ exports.getCases = async (req, res) => {
       }
     }
 
-    res.json({ cases });
+    // Return total count for pagination support
+    res.json({ cases, totalCount: cases.length, page: pageNum, pageSize: pageSizeNum });
   } catch (err) {
     console.error("Get Cases Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -451,7 +515,7 @@ exports.updateCase = async (req, res) => {
     }
 
     // 3. Add comment if provided
-    if (comments?.trim()) {
+    if (typeof comments === "string" && comments.trim()) {
       const userInfo = await pool.query("SELECT name, email FROM users WHERE id = $1", [req.user.id]);
       const user = userInfo.rows[0];
       const commentby = user?.name || user?.email || "User";
@@ -500,19 +564,20 @@ exports.updateCaseStatus = async (req, res) => {
         [caseid]
       );
 
-      // Insert new product requirements
+      // Insert new product requirements (ensure amount is stored as string)
       for (const prod of products) {
+        const amountStr = String(prod.amount);
         await pool.query(
           `INSERT INTO case_product_requirements (caseid, productname, requirement_amount, description, created_at)
            VALUES ($1, $2, $3, $4, NOW())`,
-          [caseid, prod.product, prod.amount, description || null]
+          [caseid, prod.product, amountStr, description || null]
         );
       }
 
       // Also update the main case table with the first product for backward compatibility
       await pool.query(
         `UPDATE cases SET productname = $1, requirement_amount = $2 WHERE caseid = $3`,
-        [products[0].product, products[0].amount, caseid]
+        [products[0].product, String(products[0].amount), caseid]
       );
     }
 
@@ -605,21 +670,71 @@ exports.getCaseById = async (req, res) => {
   try {
     const caseid = req.params.caseid;
 
-    const result = await pool.query(`SELECT * FROM cases WHERE caseid = $1`, [caseid]);
-    const caseData = result.rows[0];
+    // Fetch case with assignments and bank assignments (similar to getCases)
+    const result = await pool.query(`
+      SELECT 
+        c.*, 
+        u.name AS assigned_to_name, 
+        u.email AS assigned_to_email, 
+        u.phone, 
+        ca.role AS assigned_to_role,
+        kam_ca.assigned_to AS "assignedKam",
+        ba.bankid,
+        b.name AS bank_name,
+        ba.status AS bank_assignment_status,
+        ba.document_config
+      FROM cases c
+      LEFT JOIN case_assignments ca ON ca.caseid = c.caseid
+      LEFT JOIN users u ON u.id = ca.assigned_to
+      LEFT JOIN case_assignments kam_ca ON kam_ca.caseid = c.caseid AND kam_ca.role = 'KAM'
+      LEFT JOIN bank_assignments ba ON ba.caseid = c.caseid
+      LEFT JOIN banks b ON b.id = ba.bankid
+      WHERE c.caseid = $1
+    `, [caseid]);
 
-    if (!caseData) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: "Case not found" });
     }
 
-    // Fetch documents and comments
-    const docsRes = await pool.query(`SELECT * FROM documents WHERE caseid = $1`, [caseid]);
-    const commentsRes = await pool.query(`SELECT * FROM comments WHERE caseid = $1`, [caseid]);
+    // Group assignments and bank_assignments
+    const caseData = { ...result.rows[0], assignments: [], bank_assignments: [] };
+    for (const row of result.rows) {
+      // Add assignment info to assignments array (avoid duplicates)
+      if (row.assigned_to_name && !caseData.assignments.some(a => a.assigned_to_name === row.assigned_to_name && a.assigned_to_role === row.assigned_to_role)) {
+        caseData.assignments.push({
+          assigned_to_name: row.assigned_to_name,
+          assigned_to_email: row.assigned_to_email,
+          phone: row.phone,
+          assigned_to_role: row.assigned_to_role,
+        });
+      }
+      // Add bank assignment (avoid duplicates)
+      if (row.bankid && !caseData.bank_assignments.some(ba => ba.bankid === row.bankid)) {
+        caseData.bank_assignments.push({
+          bankid: row.bankid,
+          bank_name: row.bank_name,
+          status: row.bank_assignment_status,
+          document_config: row.document_config
+        });
+      }
+    }
+
+    // Fetch documents, comments, product_requirements, and bank details in parallel
+    const [docsRes, commentsRes, productReqsRes, bankRes] = await Promise.all([
+      pool.query(`SELECT * FROM documents WHERE caseid = $1 ORDER BY uploadedat DESC`, [caseid]),
+      pool.query(`SELECT * FROM comments WHERE caseid = $1 ORDER BY created_at DESC`, [caseid]),
+      pool.query(`SELECT * FROM case_product_requirements WHERE caseid = $1 ORDER BY id`, [caseid]),
+      caseData.bankname ? pool.query(`SELECT * FROM banks WHERE name = $1 LIMIT 1`, [caseData.bankname]) : Promise.resolve({ rows: [] })
+    ]);
 
     caseData.documents = docsRes.rows;
     caseData.comments = commentsRes.rows;
+    caseData.product_requirements = productReqsRes.rows;
+    caseData.bankDetails = bankRes.rows[0] || null;
+    caseData.hasSpocAdmin = false;
+    caseData.clientCredentials = null;
 
-    res.json(caseData);
+    res.json({ case: caseData });
   } catch (err) {
     console.error("Get case error:", err);
     res.status(500).json({ message: "Server error" });
@@ -696,7 +811,7 @@ exports.editCase = async (req, res) => {
       );
     }
 
-    if (comments?.trim()) {
+    if (typeof comments === "string" && comments.trim()) {
       const userInfo = await pool.query("SELECT name, email FROM users WHERE id = $1", [req.user.id]);
       const user = userInfo.rows[0];
       const commentby = user?.name || user?.email || "User";

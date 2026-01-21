@@ -4,6 +4,9 @@ const caseController = require("../controllers/caseController");
 const { verifyToken } = require("../middleware/authMiddleware");
 
 
+// GET case counts by status
+router.get("/counts", verifyToken, caseController.getCaseCounts);
+
 // GET all or role-filtered cases
 router.get("/", verifyToken, caseController.getCases);
 
