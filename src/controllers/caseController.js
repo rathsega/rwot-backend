@@ -202,6 +202,14 @@ exports.getCases = async (req, res) => {
   const pageSizeNum = parseInt(pageSize, 10) || 50;
   const offset = (pageNum - 1) * pageSizeNum;
   
+  // Simple in-memory cache for cases
+  // Key: userId + page + pageSize + statusFilter
+  if (!global.caseCache) global.caseCache = new Map();
+  const cacheKey = `${req.user.id}_${req.query.page || 1}_${req.query.pageSize || 50}_${req.query.status || ''}`;
+  if (global.caseCache.has(cacheKey)) {
+    // Serve from cache
+    return res.json(global.caseCache.get(cacheKey));
+  }
   try {
     const userResult = await pool.query(
       `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
@@ -418,6 +426,8 @@ exports.getCases = async (req, res) => {
 
     // Return total count for pagination support
     res.json({ cases, totalCount: cases.length, page: pageNum, pageSize: pageSizeNum });
+    // Store in cache
+    global.caseCache.set(cacheKey, { cases, totalCount: cases.length, page: pageNum, pageSize: pageSizeNum });
   } catch (err) {
     console.error("Get Cases Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -527,6 +537,15 @@ exports.updateCase = async (req, res) => {
       );
     }
 
+    // Invalidate cache for this user's cases (all pages)
+    if (global.caseCache) {
+      const userId = req.user.id;
+      for (const key of global.caseCache.keys()) {
+        if (key.startsWith(`${userId}_`)) {
+          global.caseCache.delete(key);
+        }
+      }
+    }
     res.json({ message: "Case updated successfully" });
   } catch (err) {
     console.error("Update Case Error:", err);
