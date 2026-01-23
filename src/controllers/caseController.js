@@ -283,8 +283,8 @@ exports.getCases = async (req, res) => {
         'pd',
         'sanctioned',
         'disbursement',
-        'done'
-        'reject'
+        'done',
+        'rejected'
       ) ORDER BY c.id DESC`;
       result = await pool.query(query, values);
     } else if (user.rolename === "KAM") {
