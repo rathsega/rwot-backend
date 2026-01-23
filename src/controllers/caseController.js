@@ -128,6 +128,11 @@ RWOT Team`
       );
     }
 
+    // Invalidate cache for all users since new case is created
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
+
     res.status(201).json({ message: "Case created" });
   } catch (err) {
     console.error("Create Case Error:", err);
@@ -272,7 +277,14 @@ exports.getCases = async (req, res) => {
         'underwriting', 
         'one pager',
         'banker review',
-        'no requirement'
+        'no requirement',
+        'accept',
+        'login'
+        'pd',
+        'sanctioned',
+        'disbursement',
+        'done'
+        'reject'
       ) ORDER BY c.id DESC`;
       result = await pool.query(query, values);
     } else if (user.rolename === "KAM") {
@@ -600,6 +612,10 @@ exports.updateCaseStatus = async (req, res) => {
       );
     }
 
+    // Invalidate cache for all users since case status is updated
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
 
     return res.json({ message: `Status updated to '${status}' for case ${caseid}` });
   } catch (err) {
@@ -636,6 +652,11 @@ exports.updateBankStatus = async (req, res) => {
       `UPDATE bank_assignments SET status = $1, updatedat = NOW() WHERE caseid = $2 AND bankid = $3`,
       [status, caseid, bankId]
     );
+
+    // Invalidate cache for all users since bank status is updated
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
 
     return res.json({ message: `Status updated to '${status}' for case ${caseid}` });
   } catch (err) {
@@ -842,6 +863,11 @@ exports.editCase = async (req, res) => {
       );
     }
 
+    // Invalidate cache for all users since case is edited
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
+
     res.json({ message: "Case updated successfully" });
   } catch (err) {
     console.error("Edit Case Error:", err);
@@ -932,6 +958,11 @@ exports.saveDocumentConfigs = async (req, res) => {
       );
     }
 
+    // Invalidate cache for all users since document configs are updated
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
+
     res.json({ message: "Document configurations saved/updated successfully" });
   } catch (err) {
     console.error("Save Document Configs Error:", err);
@@ -970,6 +1001,11 @@ exports.deleteDocumentConfig = async (req, res) => {
 
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "No document configuration found to delete" });
+    }
+
+    // Invalidate cache for all users since document config is deleted
+    if (global.caseCache) {
+      global.caseCache.clear();
     }
 
     res.json({ message: "Document configuration deleted successfully" });
@@ -1039,6 +1075,11 @@ exports.addProvisionalDocument = async (req, res) => {
       [caseid, document_name, userId]
     );
 
+    // Invalidate cache for all users since provisional document is added
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
+
     res.status(201).json({ message: "Provisional document added", document: result.rows[0] });
   } catch (err) {
     console.error("Add Provisional Document Error:", err);
@@ -1058,6 +1099,11 @@ exports.deleteProvisionalDocument = async (req, res) => {
 
     if (result.rowCount === 0) {
       return res.status(404).json({ message: "Provisional document not found" });
+    }
+
+    // Invalidate cache for all users since provisional document is deleted
+    if (global.caseCache) {
+      global.caseCache.clear();
     }
 
     res.json({ message: "Provisional document deleted successfully" });
