@@ -14,6 +14,7 @@ const assignmentRoutes = require("./routes/caseAssignmentRoutes");
 const userRoutes = require("./routes/user");
 const profileRoutes = require("./routes/profile");
 const emailRoutes = require("./routes/email");
+const settingsRoutes = require("./routes/settingsRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -50,6 +51,7 @@ app.use("/api/banks", bankRoutes);
 app.use("/api/cases/assign", assignmentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/settings", settingsRoutes);
 app.use("/api", require("./routes/email"));
 
 app.use("/api/roles", require("./routes/roles"));

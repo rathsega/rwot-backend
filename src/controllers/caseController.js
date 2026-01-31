@@ -279,7 +279,7 @@ exports.getCases = async (req, res) => {
         'banker review',
         'no requirement',
         'accept',
-        'login'
+        'login',
         'pd',
         'sanctioned',
         'disbursement',
