@@ -216,9 +216,90 @@ exports.getCaseCounts = async (req, res) => {
   }
 };
 
-// Get dashboard statistics (counts, ratios) - optimized endpoint
+// Get dashboard statistics (counts, ratios) - optimized endpoint with filter support
 exports.getDashboardStats = async (req, res) => {
   try {
+    const { dateFilter, dateFrom, dateTo } = req.query;
+    
+    // Build date filter condition
+    const whereConditions = [];
+    const values = [];
+    let paramIndex = 1;
+    
+    // Date filter logic
+    if (dateFilter && dateFilter !== 'all') {
+      const now = new Date();
+      let filterStart, filterEnd;
+      
+      switch(dateFilter) {
+        case 'today':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'yesterday':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          break;
+        case 'last7days':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'last30days':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'thisweek':
+          const dayOfWeek = now.getDay();
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'thismonth':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'thisyear':
+          filterStart = new Date(now.getFullYear(), 0, 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'financialyear':
+          filterStart = now.getMonth() >= 3
+            ? new Date(now.getFullYear(), 3, 1)
+            : new Date(now.getFullYear() - 1, 3, 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+          break;
+        case 'lastfinancialyear':
+          filterStart = now.getMonth() >= 3
+            ? new Date(now.getFullYear() - 1, 3, 1)
+            : new Date(now.getFullYear() - 2, 3, 1);
+          filterEnd = now.getMonth() >= 3
+            ? new Date(now.getFullYear(), 3, 1)
+            : new Date(now.getFullYear() - 1, 3, 1);
+          break;
+        case 'custom':
+          if (dateFrom) {
+            filterStart = new Date(dateFrom);
+          }
+          if (dateTo) {
+            filterEnd = new Date(dateTo);
+            filterEnd.setDate(filterEnd.getDate() + 1); // Include the end date
+          }
+          break;
+      }
+      
+      if (filterStart) {
+        whereConditions.push(`c.createddate >= $${paramIndex}`);
+        values.push(filterStart);
+        paramIndex++;
+      }
+      if (filterEnd) {
+        whereConditions.push(`c.createddate < $${paramIndex}`);
+        values.push(filterEnd);
+        paramIndex++;
+      }
+    }
+    
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    
     // Get current date info for time-based counts
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -232,35 +313,37 @@ exports.getDashboardStats = async (req, res) => {
       ? new Date(now.getFullYear(), 3, 1)
       : new Date(now.getFullYear() - 1, 3, 1);
 
-    // Single query to get all counts
+    // Single query to get all counts with filter
     const statsQuery = `
       SELECT 
         COUNT(*) FILTER (WHERE DATE(c.createddate) = CURRENT_DATE) as today_count,
-        COUNT(*) FILTER (WHERE c.createddate >= $1) as last_7_days_count,
-        COUNT(*) FILTER (WHERE c.createddate >= $2) as last_30_days_count,
-        COUNT(*) FILTER (WHERE c.createddate >= $3) as financial_year_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex}) as last_7_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex + 1}) as last_30_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex + 2}) as financial_year_count,
         COUNT(*) as total_leads,
         COUNT(*) FILTER (WHERE LOWER(c.status) IN ('meeting done', 'documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as meeting_done,
         COUNT(*) FILTER (WHERE LOWER(c.status) IN ('documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as documentation_initiated
       FROM cases c
+      ${whereClause}
     `;
 
-    const statsResult = await pool.query(statsQuery, [last7DaysStart, last30DaysStart, financialYearStart]);
+    const statsResult = await pool.query(statsQuery, [...values, last7DaysStart, last30DaysStart, financialYearStart]);
     const statsRow = statsResult.rows[0];
 
-    // Get status counts
+    // Get status counts with filter
     const statusQuery = `
       SELECT c.status, COUNT(*) as count
       FROM cases c
+      ${whereClause}
       GROUP BY c.status
     `;
-    const statusResult = await pool.query(statusQuery);
+    const statusResult = await pool.query(statusQuery, values);
     const statusCounts = {};
     statusResult.rows.forEach(row => {
       statusCounts[row.status] = parseInt(row.count, 10);
     });
 
-    // Get banker acceptance, sanction, disbursement counts from bank_assignments
+    // Get banker acceptance, sanction, disbursement counts from bank_assignments with filter
     const bankerStatsQuery = `
       SELECT 
         COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) IN ('ACCEPT', 'ACCEPTED', 'IN-PROGRESS', 'IN_PROGRESS', 'APPROVED', 'SANCTIONED', 'DISBURSED')) as banker_accepted,
@@ -268,8 +351,9 @@ exports.getDashboardStats = async (req, res) => {
         COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) = 'DISBURSED') as disbursed
       FROM cases c
       LEFT JOIN bank_assignments ba ON c.caseid = ba.caseid
+      ${whereClause}
     `;
-    const bankerStatsResult = await pool.query(bankerStatsQuery);
+    const bankerStatsResult = await pool.query(bankerStatsQuery, values);
     const bankerStats = bankerStatsResult.rows[0];
 
     // Calculate ratios
