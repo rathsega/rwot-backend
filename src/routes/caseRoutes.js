@@ -7,6 +7,9 @@ const { verifyToken } = require("../middleware/authMiddleware");
 // GET case counts by status
 router.get("/counts", verifyToken, caseController.getCaseCounts);
 
+// GET dashboard statistics (optimized for dashboard view)
+router.get("/dashboard-stats", verifyToken, caseController.getDashboardStats);
+
 // GET lightweight cases list with pagination (for performance)
 router.get("/list", verifyToken, caseController.getCasesList);
 

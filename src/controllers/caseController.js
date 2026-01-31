@@ -216,6 +216,101 @@ exports.getCaseCounts = async (req, res) => {
   }
 };
 
+// Get dashboard statistics (counts, ratios) - optimized endpoint
+exports.getDashboardStats = async (req, res) => {
+  try {
+    // Get current date info for time-based counts
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last7DaysStart = new Date(todayStart);
+    last7DaysStart.setDate(last7DaysStart.getDate() - 7);
+    const last30DaysStart = new Date(todayStart);
+    last30DaysStart.setDate(last30DaysStart.getDate() - 30);
+    
+    // Financial year starts April 1st
+    const financialYearStart = now.getMonth() >= 3
+      ? new Date(now.getFullYear(), 3, 1)
+      : new Date(now.getFullYear() - 1, 3, 1);
+
+    // Single query to get all counts
+    const statsQuery = `
+      SELECT 
+        COUNT(*) FILTER (WHERE DATE(c.createddate) = CURRENT_DATE) as today_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $1) as last_7_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $2) as last_30_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $3) as financial_year_count,
+        COUNT(*) as total_leads,
+        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('meeting done', 'documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as meeting_done,
+        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as documentation_initiated
+      FROM cases c
+    `;
+
+    const statsResult = await pool.query(statsQuery, [last7DaysStart, last30DaysStart, financialYearStart]);
+    const statsRow = statsResult.rows[0];
+
+    // Get status counts
+    const statusQuery = `
+      SELECT c.status, COUNT(*) as count
+      FROM cases c
+      GROUP BY c.status
+    `;
+    const statusResult = await pool.query(statusQuery);
+    const statusCounts = {};
+    statusResult.rows.forEach(row => {
+      statusCounts[row.status] = parseInt(row.count, 10);
+    });
+
+    // Get banker acceptance, sanction, disbursement counts from bank_assignments
+    const bankerStatsQuery = `
+      SELECT 
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) IN ('ACCEPT', 'ACCEPTED', 'IN-PROGRESS', 'IN_PROGRESS', 'APPROVED', 'SANCTIONED', 'DISBURSED')) as banker_accepted,
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) IN ('SANCTIONED', 'DISBURSED')) as sanctioned,
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) = 'DISBURSED') as disbursed
+      FROM cases c
+      LEFT JOIN bank_assignments ba ON c.caseid = ba.caseid
+    `;
+    const bankerStatsResult = await pool.query(bankerStatsQuery);
+    const bankerStats = bankerStatsResult.rows[0];
+
+    // Calculate ratios
+    const totalLeads = parseInt(statsRow.total_leads, 10) || 0;
+    const meetingDone = parseInt(statsRow.meeting_done, 10) || 0;
+    const documentationInitiated = parseInt(statsRow.documentation_initiated, 10) || 0;
+    const bankerAccepted = parseInt(bankerStats.banker_accepted, 10) || 0;
+    const sanctioned = parseInt(bankerStats.sanctioned, 10) || 0;
+    const disbursed = parseInt(bankerStats.disbursed, 10) || 0;
+
+    const ratios = {
+      leadsToMeeting: totalLeads > 0 ? ((meetingDone / totalLeads) * 100).toFixed(1) : "0",
+      meetingToDocuments: meetingDone > 0 ? ((documentationInitiated / meetingDone) * 100).toFixed(1) : "0",
+      documentsToBankerAcceptance: documentationInitiated > 0 ? ((bankerAccepted / documentationInitiated) * 100).toFixed(1) : "0",
+      bankerAcceptanceToSanction: bankerAccepted > 0 ? ((sanctioned / bankerAccepted) * 100).toFixed(1) : "0",
+      sanctionToDisbursement: sanctioned > 0 ? ((disbursed / sanctioned) * 100).toFixed(1) : "0"
+    };
+
+    const ratioCounts = {
+      leadsToMeeting: { num: meetingDone, den: totalLeads },
+      meetingToDocuments: { num: documentationInitiated, den: meetingDone },
+      documentsToBankerAcceptance: { num: bankerAccepted, den: documentationInitiated },
+      bankerAcceptanceToSanction: { num: sanctioned, den: bankerAccepted },
+      sanctionToDisbursement: { num: disbursed, den: sanctioned }
+    };
+
+    res.json({
+      today: parseInt(statsRow.today_count, 10) || 0,
+      last7Days: parseInt(statsRow.last_7_days_count, 10) || 0,
+      last30Days: parseInt(statsRow.last_30_days_count, 10) || 0,
+      thisFinancialYear: parseInt(statsRow.financial_year_count, 10) || 0,
+      statusCounts,
+      ratios,
+      ratioCounts
+    });
+  } catch (err) {
+    console.error("Get Dashboard Stats Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 // Get cases with documents, comments, and KAM assignment
 exports.getCases = async (req, res) => {
   const userId = req.user.id;
