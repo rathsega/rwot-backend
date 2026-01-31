@@ -96,17 +96,6 @@ Regards,
 RWOT Team`
       });
       // await sendWhatsApp(kamPhone, `New RWOT case ${caseid} has been assigned to you.`);
-
-      const operationsUser = await pool.query("SELECT id FROM users WHERE roleid = (SELECT id FROM roles WHERE rolename = 'Operations') LIMIT 1");
-      const operationsUserId = operationsUser.rows[0]?.id;
-      if (operationsUserId) {
-        await pool.query(
-          `INSERT INTO case_assignments (caseid, assigned_to, role)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (caseid, role) DO UPDATE SET assigned_to = EXCLUDED.assigned_to`,
-          [caseid, operationsUserId, "Operations"]
-        );
-      }
     }
 
     await pool.query(
@@ -167,7 +156,8 @@ exports.getCaseCounts = async (req, res) => {
     } else if (user.rolename === "Operations") {
       whereClause = ` WHERE LOWER(c.status) IN (
         'open', 'meeting done', 'documentation initiated', 'documentation in progress', 
-        'underwriting', 'one pager', 'banker review', 'no requirement'
+        'underwriting', 'one pager', 'banker review', 'no requirement',
+        'accept', 'login', 'pd', 'sanctioned', 'disbursement', 'done', 'rejected'
       )`;
     }
     // Admin and UW see all cases (no WHERE clause for counts)
@@ -247,7 +237,7 @@ exports.getCases = async (req, res) => {
     if (user.rolename === "Admin") {
       if (role) {
         if (role == "uw") {
-          query += `  WHERE LOWER(c.status) in  ('one pager', 'underwriting', 'completed', 'closed', 'rejected', 'disbursed','pd', 'sanctioned', 'done', 'accept', 'login') or ca.role = 'Banker' ORDER BY c.id DESC`;
+          query += `  WHERE LOWER(c.status) in  ('one pager', 'underwriting', 'rejected', 'disbursement','pd', 'sanctioned', 'done', 'accept', 'login') or ca.role = 'Banker' ORDER BY c.id DESC`;
           result = await pool.query(query, values);
         }
       } else {
@@ -264,7 +254,7 @@ exports.getCases = async (req, res) => {
       values.push(user.email);
       result = await pool.query(query, values);
     } else if (user.rolename === "UW") {
-      query += ` WHERE LOWER(c.status) in  ('one pager', 'underwriting', 'completed', 'closed', 'rejected', 'disbursed','pd', 'sanctioned', 'done', 'accept', 'login') or ca.role = 'Banker' ORDER BY c.id DESC`;
+      query += ` WHERE LOWER(c.status) in  ('one pager', 'underwriting', 'rejected', 'disbursement','pd', 'sanctioned', 'done', 'accept', 'login') or ca.role = 'Banker' ORDER BY c.id DESC`;
       result = await pool.query(query, values);
     } else if (
       user.rolename === "Operations"
@@ -410,9 +400,9 @@ exports.getCases = async (req, res) => {
       c.clientCredentials = null; // Skip for performance
     }
 
-    // If case is assigned to a banker then keep that status as Banker Review and status is not completed or closed or rejected or disbursed or sanctioned or Done
+    // If case is assigned to a banker then keep that status as Banker Review and status is not rejected or disbursement or sanctioned or Done
     for (const c of cases) {
-      if (c.assigned_to_role === "Banker" && !["completed", "closed", "rejected", "disbursed", "sanctioned", "Done"].includes(c.status)) {
+      if (c.assigned_to_role === "Banker" && !["rejected", "disbursement", "sanctioned", "Done"].includes(c.status?.toLowerCase())) {
         c.status = "Banker Review";
       }
     }

@@ -24,18 +24,7 @@ exports.updateStage = async (req, res) => {
     if (!currentCase) return res.status(404).json({ error: "Case not found" });
 
     // Assignment logic based on stage
-    if (stage === "KAM Review") {
-      // Assigned by Telecaller to KAM, now also assign to Operations
-      const opsUser = await pool.query(
-        `SELECT id FROM users WHERE roleid = (SELECT id FROM roles WHERE rolename = 'Operations') LIMIT 1`
-      );
-      if (opsUser.rows.length > 0) {
-        await pool.query(
-          `INSERT INTO case_assignments (caseid, assigned_to) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-          [caseid, opsUser.rows[0].id]
-        );
-      }
-    } else if (stage === "Underwriting" || stage === "Underwriter") {
+    if (stage === "Underwriting" || stage === "Underwriter") {
       // Assigned by Operations to Underwriter
       const uwUser = await pool.query(
         `SELECT id FROM users WHERE roleid = (SELECT id FROM roles WHERE rolename = 'UW') LIMIT 1`
