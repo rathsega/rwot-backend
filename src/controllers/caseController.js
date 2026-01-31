@@ -311,6 +311,209 @@ exports.getDashboardStats = async (req, res) => {
   }
 };
 
+// Get user-filtered dashboard statistics (counts, ratios) - optimized endpoint with filters
+exports.getUserDashboardStats = async (req, res) => {
+  try {
+    const { userId, dateFilter, dateFrom, dateTo } = req.query;
+    
+    // Build date range conditions
+    let dateCondition = "";
+    const values = [];
+    let paramIndex = 1;
+    
+    // Build WHERE clause parts
+    const whereConditions = [];
+    
+    // User filter - filter by case assignments or created by
+    if (userId) {
+      whereConditions.push(`(
+        EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to = $${paramIndex})
+        OR c.createdby = $${paramIndex}
+      )`);
+      values.push(parseInt(userId, 10));
+      paramIndex++;
+    }
+    
+    // Date filter logic
+    const now = new Date();
+    let filterDateFrom = null;
+    let filterDateTo = null;
+    
+    switch (dateFilter) {
+      case 'today':
+        filterDateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        filterDateTo = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        break;
+      case 'yesterday':
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        filterDateFrom = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+        filterDateTo = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+        break;
+      case 'last7days':
+        filterDateFrom = new Date(now);
+        filterDateFrom.setDate(filterDateFrom.getDate() - 7);
+        filterDateTo = now;
+        break;
+      case 'last30days':
+        filterDateFrom = new Date(now);
+        filterDateFrom.setDate(filterDateFrom.getDate() - 30);
+        filterDateTo = now;
+        break;
+      case 'thisweek':
+        const dayOfWeek = now.getDay();
+        const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+        filterDateFrom = new Date(now);
+        filterDateFrom.setDate(filterDateFrom.getDate() + mondayOffset);
+        filterDateFrom.setHours(0, 0, 0, 0);
+        filterDateTo = new Date(filterDateFrom);
+        filterDateTo.setDate(filterDateTo.getDate() + 6);
+        filterDateTo.setHours(23, 59, 59, 999);
+        break;
+      case 'thismonth':
+        filterDateFrom = new Date(now.getFullYear(), now.getMonth(), 1);
+        filterDateTo = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        break;
+      case 'thisyear':
+        filterDateFrom = new Date(now.getFullYear(), 0, 1);
+        filterDateTo = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+        break;
+      case 'financialyear':
+        filterDateFrom = now.getMonth() >= 3 
+          ? new Date(now.getFullYear(), 3, 1)
+          : new Date(now.getFullYear() - 1, 3, 1);
+        filterDateTo = now.getMonth() >= 3 
+          ? new Date(now.getFullYear() + 1, 2, 31, 23, 59, 59)
+          : new Date(now.getFullYear(), 2, 31, 23, 59, 59);
+        break;
+      case 'lastfinancialyear':
+        filterDateFrom = now.getMonth() >= 3 
+          ? new Date(now.getFullYear() - 1, 3, 1)
+          : new Date(now.getFullYear() - 2, 3, 1);
+        filterDateTo = now.getMonth() >= 3 
+          ? new Date(now.getFullYear(), 2, 31, 23, 59, 59)
+          : new Date(now.getFullYear() - 1, 2, 31, 23, 59, 59);
+        break;
+      case 'custom':
+        if (dateFrom) filterDateFrom = new Date(dateFrom);
+        if (dateTo) filterDateTo = new Date(dateTo + 'T23:59:59');
+        break;
+      default:
+        // 'all' - no date filter
+        break;
+    }
+    
+    if (filterDateFrom) {
+      whereConditions.push(`c.createddate >= $${paramIndex}`);
+      values.push(filterDateFrom);
+      paramIndex++;
+    }
+    if (filterDateTo) {
+      whereConditions.push(`c.createddate <= $${paramIndex}`);
+      values.push(filterDateTo);
+      paramIndex++;
+    }
+    
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+    
+    // Get current date info for time-based counts
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const last7DaysStart = new Date(todayStart);
+    last7DaysStart.setDate(last7DaysStart.getDate() - 7);
+    const last30DaysStart = new Date(todayStart);
+    last30DaysStart.setDate(last30DaysStart.getDate() - 30);
+    
+    // Financial year starts April 1st
+    const financialYearStart = now.getMonth() >= 3
+      ? new Date(now.getFullYear(), 3, 1)
+      : new Date(now.getFullYear() - 1, 3, 1);
+
+    // Single query to get all counts with filters
+    const statsQuery = `
+      SELECT 
+        COUNT(*) FILTER (WHERE DATE(c.createddate) = CURRENT_DATE) as today_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex}) as last_7_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex + 1}) as last_30_days_count,
+        COUNT(*) FILTER (WHERE c.createddate >= $${paramIndex + 2}) as financial_year_count,
+        COUNT(*) as total_leads,
+        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('meeting done', 'documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as meeting_done,
+        COUNT(*) FILTER (WHERE LOWER(c.status) IN ('documentation initiated', 'documentation in progress', 'underwriting', 'one pager', 'banker review', 'login', 'pd', 'sanctioned', 'disbursement', 'done')) as documentation_initiated
+      FROM cases c
+      ${whereClause}
+    `;
+    
+    const statsValues = [...values, last7DaysStart, last30DaysStart, financialYearStart];
+    const statsResult = await pool.query(statsQuery, statsValues);
+    const statsRow = statsResult.rows[0];
+
+    // Get status counts with filters
+    const statusQuery = `
+      SELECT c.status, COUNT(*) as count
+      FROM cases c
+      ${whereClause}
+      GROUP BY c.status
+    `;
+    const statusResult = await pool.query(statusQuery, values);
+    const statusCounts = {};
+    statusResult.rows.forEach(row => {
+      if (row.status) {
+        statusCounts[row.status] = parseInt(row.count, 10);
+      }
+    });
+
+    // Get banker acceptance, sanction, disbursement counts with filters
+    const bankerStatsQuery = `
+      SELECT 
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) IN ('ACCEPT', 'ACCEPTED', 'IN-PROGRESS', 'IN_PROGRESS', 'APPROVED', 'SANCTIONED', 'DISBURSEMENT')) as banker_accepted,
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) IN ('SANCTIONED', 'DISBURSEMENT')) as sanctioned,
+        COUNT(DISTINCT c.caseid) FILTER (WHERE UPPER(ba.status) = 'DISBURSEMENT') as disbursed
+      FROM cases c
+      LEFT JOIN bank_assignments ba ON c.caseid = ba.caseid
+      ${whereClause}
+    `;
+    const bankerStatsResult = await pool.query(bankerStatsQuery, values);
+    const bankerStats = bankerStatsResult.rows[0];
+
+    // Calculate ratios
+    const totalLeads = parseInt(statsRow.total_leads, 10) || 0;
+    const meetingDone = parseInt(statsRow.meeting_done, 10) || 0;
+    const documentationInitiated = parseInt(statsRow.documentation_initiated, 10) || 0;
+    const bankerAccepted = parseInt(bankerStats.banker_accepted, 10) || 0;
+    const sanctioned = parseInt(bankerStats.sanctioned, 10) || 0;
+    const disbursed = parseInt(bankerStats.disbursed, 10) || 0;
+
+    const ratios = {
+      leadsToMeeting: totalLeads > 0 ? ((meetingDone / totalLeads) * 100).toFixed(1) : "0",
+      meetingToDocuments: meetingDone > 0 ? ((documentationInitiated / meetingDone) * 100).toFixed(1) : "0",
+      documentsToBankerAcceptance: documentationInitiated > 0 ? ((bankerAccepted / documentationInitiated) * 100).toFixed(1) : "0",
+      bankerAcceptanceToSanction: bankerAccepted > 0 ? ((sanctioned / bankerAccepted) * 100).toFixed(1) : "0",
+      sanctionToDisbursement: sanctioned > 0 ? ((disbursed / sanctioned) * 100).toFixed(1) : "0"
+    };
+
+    const ratioCounts = {
+      leadsToMeeting: { num: meetingDone, den: totalLeads },
+      meetingToDocuments: { num: documentationInitiated, den: meetingDone },
+      documentsToBankerAcceptance: { num: bankerAccepted, den: documentationInitiated },
+      bankerAcceptanceToSanction: { num: sanctioned, den: bankerAccepted },
+      sanctionToDisbursement: { num: disbursed, den: sanctioned }
+    };
+
+    res.json({
+      today: parseInt(statsRow.today_count, 10) || 0,
+      last7Days: parseInt(statsRow.last_7_days_count, 10) || 0,
+      last30Days: parseInt(statsRow.last_30_days_count, 10) || 0,
+      thisFinancialYear: parseInt(statsRow.financial_year_count, 10) || 0,
+      statusCounts,
+      ratios,
+      ratioCounts,
+      totalFiltered: totalLeads
+    });
+  } catch (err) {
+    console.error("Get User Dashboard Stats Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
 // Get cases with documents, comments, and KAM assignment
 exports.getCases = async (req, res) => {
   const userId = req.user.id;

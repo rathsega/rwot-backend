@@ -10,6 +10,9 @@ router.get("/counts", verifyToken, caseController.getCaseCounts);
 // GET dashboard statistics (optimized for dashboard view)
 router.get("/dashboard-stats", verifyToken, caseController.getDashboardStats);
 
+// GET user dashboard statistics with filters (optimized for user dashboard view)
+router.get("/user-dashboard-stats", verifyToken, caseController.getUserDashboardStats);
+
 // GET lightweight cases list with pagination (for performance)
 router.get("/list", verifyToken, caseController.getCasesList);
 
