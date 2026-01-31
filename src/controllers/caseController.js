@@ -132,6 +132,8 @@ RWOT Team`
 // Get case counts by status for dashboard tabs
 exports.getCaseCounts = async (req, res) => {
   const userId = req.user.id;
+  const { coldThresholdHours = 48 } = req.query; // Accept threshold from frontend
+  
   try {
     const userResult = await pool.query(
       `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
@@ -147,12 +149,15 @@ exports.getCaseCounts = async (req, res) => {
     if (user.rolename === "Individual") {
       whereClause = ` WHERE c.role = 'Individual' AND LOWER(c.spocemail) = LOWER($${paramIndex})`;
       values.push(user.email);
+      paramIndex++;
     } else if (user.rolename === "KAM") {
       whereClause = ` WHERE EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.role = 'KAM' AND ca.assigned_to = $${paramIndex})`;
       values.push(userId);
+      paramIndex++;
     } else if (user.rolename === "Telecaller") {
       whereClause = ` WHERE c.createdby = $${paramIndex}`;
       values.push(userId);
+      paramIndex++;
     } else if (user.rolename === "Operations") {
       whereClause = ` WHERE LOWER(c.status) IN (
         'open', 'meeting done', 'documentation initiated', 'documentation in progress', 
@@ -181,6 +186,28 @@ exports.getCaseCounts = async (req, res) => {
       total += parseInt(row.count, 10);
     });
     counts.total = total;
+
+    // Calculate cold cases count (cases inactive for more than threshold hours)
+    // Exclude: open, no requirement, done, rejected, meeting done
+    const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
+    const coldWhereClause = whereClause 
+      ? `${whereClause} AND LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})
+         AND c.status_updated_on IS NOT NULL 
+         AND c.status_updated_on < NOW() - INTERVAL '${parseInt(coldThresholdHours, 10)} hours'`
+      : `WHERE LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})
+         AND c.status_updated_on IS NOT NULL 
+         AND c.status_updated_on < NOW() - INTERVAL '${parseInt(coldThresholdHours, 10)} hours'`;
+    
+    const coldValues = [...values, ...coldExcludedStatuses];
+    
+    const coldCountQuery = `
+      SELECT COUNT(DISTINCT c.caseid) as count
+      FROM cases c
+      ${coldWhereClause}
+    `;
+    
+    const coldResult = await pool.query(coldCountQuery, coldValues);
+    counts.cold = parseInt(coldResult.rows[0]?.count || 0, 10);
 
     res.json({ counts });
   } catch (err) {
@@ -564,8 +591,9 @@ exports.updateCaseStatus = async (req, res) => {
   try {
     if (!status) return res.status(400).json({ error: "Missing status field" });
 
+    // Update both status and stage to keep them in sync
     await pool.query(
-      `UPDATE cases SET status = $1, updatedat = NOW(), status_updated_on = NOW() WHERE caseid = $2`,
+      `UPDATE cases SET status = $1, stage = $1, updatedat = NOW(), status_updated_on = NOW() WHERE caseid = $2`,
       [status, caseid]
     );
 
@@ -1099,6 +1127,220 @@ exports.deleteProvisionalDocument = async (req, res) => {
     res.json({ message: "Provisional document deleted successfully" });
   } catch (err) {
     console.error("Delete Provisional Document Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// ============================================================
+// LIGHTWEIGHT LIST API FOR PERFORMANCE OPTIMIZATION
+// ============================================================
+
+/**
+ * Get cases list with minimal data for cards
+ * Supports: pagination, status filtering, role-based access
+ * Query params: page, limit, status, search
+ */
+exports.getCasesList = async (req, res) => {
+  const userId = req.user.id;
+  const { 
+    page = 1, 
+    limit = 20, 
+    status: statusFilter, 
+    search,
+    dateFrom,
+    dateTo,
+    cold,
+    coldThresholdHours = 48
+  } = req.query;
+  
+  const pageNum = parseInt(page, 10) || 1;
+  const limitNum = parseInt(limit, 10) || 20;
+  const offset = (pageNum - 1) * limitNum;
+
+  try {
+    // Get user role
+    const userResult = await pool.query(
+      `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
+      [userId]
+    );
+    const user = userResult.rows[0];
+    if (!user) {
+      return res.status(401).json({ error: "User not found" });
+    }
+
+    let whereConditions = [];
+    let values = [];
+    let paramIndex = 1;
+
+    // Role-based filtering
+    if (user.rolename === "Telecaller") {
+      whereConditions.push(`c.createdby = $${paramIndex}`);
+      values.push(userId);
+      paramIndex++;
+    } else if (user.rolename === "KAM") {
+      whereConditions.push(`EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.role = 'KAM' AND ca.assigned_to = $${paramIndex})`);
+      values.push(userId);
+      paramIndex++;
+    } else if (user.rolename === "Banker") {
+      whereConditions.push(`EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.role = 'Banker' AND ca.assigned_to = $${paramIndex})`);
+      values.push(userId);
+      paramIndex++;
+    } else if (user.rolename === "Individual") {
+      whereConditions.push(`c.role = 'Individual' AND LOWER(c.spocemail) = LOWER($${paramIndex})`);
+      values.push(user.email);
+      paramIndex++;
+    } else if (user.rolename === "Operations") {
+      whereConditions.push(`LOWER(c.status) IN (
+        'open', 'meeting done', 'documentation initiated', 'documentation in progress', 
+        'underwriting', 'one pager', 'banker review', 'no requirement',
+        'accept', 'login', 'pd', 'sanctioned', 'disbursement', 'done', 'rejected'
+      )`);
+    }
+    // Admin and UW see all cases
+
+    // Status filter - supports comma-separated statuses
+    if (statusFilter && statusFilter.toLowerCase() !== 'cold') {
+      const statuses = statusFilter.split(',').map(s => s.trim()).filter(Boolean);
+      if (statuses.length === 1) {
+        whereConditions.push(`LOWER(c.status) = LOWER($${paramIndex})`);
+        values.push(statuses[0]);
+        paramIndex++;
+      } else if (statuses.length > 1) {
+        const placeholders = statuses.map((_, i) => `LOWER($${paramIndex + i})`);
+        whereConditions.push(`LOWER(c.status) IN (${placeholders.join(', ')})`);
+        values.push(...statuses);
+        paramIndex += statuses.length;
+      }
+    }
+
+    // Cold case filter - cases inactive for more than threshold hours
+    if (cold === 'true' || statusFilter?.toLowerCase() === 'cold') {
+      const thresholdHrs = parseInt(coldThresholdHours, 10) || 48;
+      const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
+      whereConditions.push(`LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+      values.push(...coldExcludedStatuses);
+      paramIndex += coldExcludedStatuses.length;
+      whereConditions.push(`c.status_updated_on IS NOT NULL`);
+      whereConditions.push(`c.status_updated_on < NOW() - INTERVAL '${thresholdHrs} hours'`);
+    }
+
+    // Search filter (company name or client name)
+    if (search && search.trim()) {
+      whereConditions.push(`(
+        LOWER(c.companyname) LIKE LOWER($${paramIndex}) OR 
+        LOWER(c.clientname) LIKE LOWER($${paramIndex})
+      )`);
+      values.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // Date range filter
+    if (dateFrom) {
+      whereConditions.push(`c.createddate >= $${paramIndex}`);
+      values.push(dateFrom);
+      paramIndex++;
+    }
+    if (dateTo) {
+      whereConditions.push(`c.createddate <= $${paramIndex}::date + INTERVAL '1 day'`);
+      values.push(dateTo);
+      paramIndex++;
+    }
+
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}` 
+      : '';
+
+    // Count query for pagination
+    const countQuery = `
+      SELECT COUNT(DISTINCT c.caseid) as total
+      FROM cases c
+      ${whereClause}
+    `;
+    const countResult = await pool.query(countQuery, values);
+    const total = parseInt(countResult.rows[0]?.total || 0, 10);
+
+    // Lightweight data query - only essential fields for cards
+    const dataQuery = `
+      SELECT
+        c.id,
+        c.caseid,
+        c.companyname,
+        c.clientname,
+        c.status,
+        c.status_updated_on,
+        c.meeting_done_date,
+        c.createddate,
+        c.updatedat,
+        c.phonenumber,
+        c.spocemail,
+        c.spocphonenumber,
+        c.turnover,
+        c.location,
+        MAX(kam.name) AS kam_name,
+        MAX(telecaller.name) AS telecaller_name,
+        (SELECT COUNT(*) FROM bank_assignments ba WHERE ba.caseid = c.caseid) AS bank_count,
+        (SELECT COUNT(*) FROM comments cm WHERE cm.caseid = c.caseid) AS comment_count,
+        (
+          SELECT json_agg(json_build_object('bankid', ba.bankid, 'bank_name', b.name, 'status', ba.status))
+          FROM bank_assignments ba
+          JOIN banks b ON b.id = ba.bankid
+          WHERE ba.caseid = c.caseid
+        ) AS bank_assignments,
+        (
+          SELECT json_agg(json_build_object('id', d.id, 'doctype', d.doctype, 'docname', d.docname, 'filename', d.filename, 'uploadedat', d.uploadedat))
+          FROM documents d
+          WHERE d.caseid = c.caseid
+        ) AS documents
+      FROM cases c
+      LEFT JOIN case_assignments kam_ca ON kam_ca.caseid = c.caseid AND kam_ca.role = 'KAM'
+      LEFT JOIN users kam ON kam.id = kam_ca.assigned_to
+      LEFT JOIN case_assignments tc_ca ON tc_ca.caseid = c.caseid AND tc_ca.role = 'Telecaller'
+      LEFT JOIN users telecaller ON telecaller.id = tc_ca.assigned_to
+      ${whereClause}
+      GROUP BY c.id, c.caseid, c.companyname, c.clientname, c.status, c.status_updated_on, 
+               c.meeting_done_date, c.createddate, c.updatedat, c.phonenumber, c.spocemail, 
+               c.spocphonenumber, c.turnover, c.location
+      ORDER BY c.id DESC
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+    `;
+    
+    values.push(limitNum, offset);
+    const dataResult = await pool.query(dataQuery, values);
+
+    // Transform for Operations/Admin - apply status transformation
+    let cases = dataResult.rows;
+    if (["Operations", "Admin"].includes(user.rolename)) {
+      const statusOrder = ["REJECT", "OPEN", "LOGIN", "PD", "SANCTIONED", "DISBURSEMENT", "DONE"];
+      cases = cases.map(c => {
+        // Check if case has bank assignments and determine display status
+        if (c.bank_assignments && c.bank_assignments.length > 0 && c.status?.toLowerCase() === "one pager") {
+          let highestStatusIndex = -1;
+          for (const ba of c.bank_assignments) {
+            const index = statusOrder.indexOf(ba.status?.toUpperCase());
+            if (index > highestStatusIndex) {
+              highestStatusIndex = index;
+            }
+          }
+          if (highestStatusIndex >= 0) {
+            c.display_status = statusOrder[highestStatusIndex];
+          }
+        }
+        return c;
+      });
+    }
+
+    res.json({
+      cases,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum),
+        hasMore: pageNum * limitNum < total
+      }
+    });
+  } catch (err) {
+    console.error("Get Cases List Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };

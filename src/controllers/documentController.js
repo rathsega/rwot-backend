@@ -36,6 +36,11 @@ exports.uploadDocument = async (req, res) => {
       [caseid, doctype, docname, file.filename]
     );
 
+    // Clear case cache since documents have changed
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
+
     return res.status(200).json({ message: "Document uploaded successfully" });
   } catch (error) {
     console.error("Upload Error:", error);
@@ -81,6 +86,11 @@ exports.deleteDocument = async (req, res) => {
     // Optional: delete file from disk (if needed)
     const filePath = path.join(__dirname, "..", "uploads", filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+    // Clear case cache since documents have changed
+    if (global.caseCache) {
+      global.caseCache.clear();
+    }
 
     res.json({ message: "Document deleted successfully" });
   } catch (err) {
