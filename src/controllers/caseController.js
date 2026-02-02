@@ -3,6 +3,22 @@ const pool = require("../db");
 const { sendEmail, sendWhatsApp } = require("../utils/notifications");
 const { sendEmailNotification } = require("../utils/emailHelper");
 
+// Helper function to log status changes
+const logStatusChange = async (caseid, oldStatus, newStatus, changedBy, remarks = null) => {
+  if (oldStatus === newStatus) return; // No change, don't log
+  
+  try {
+    await pool.query(
+      `INSERT INTO status_change_log (caseid, old_status, new_status, changed_by, changed_at, remarks)
+       VALUES ($1, $2, $3, $4, NOW(), $5)`,
+      [caseid, oldStatus, newStatus, changedBy, remarks]
+    );
+  } catch (err) {
+    console.error("Error logging status change:", err);
+    // Don't throw - status logging failure shouldn't block the main operation
+  }
+};
+
 // Create case
 exports.createCase = async (req, res) => {
   const {
@@ -116,6 +132,9 @@ RWOT Team`
         )
       );
     }
+
+    // Log initial status creation
+    await logStatusChange(caseid, null, status || "Open", createdby, "Case created");
 
     // Invalidate cache for all users since new case is created
     if (global.caseCache) {
@@ -888,6 +907,13 @@ exports.updateCase = async (req, res) => {
   } = req.body;
 
   try {
+    // Get current status before update for logging
+    const currentCaseResult = await pool.query(
+      `SELECT status FROM cases WHERE caseid = $1`,
+      [caseid]
+    );
+    const oldStatus = currentCaseResult.rows[0]?.status;
+
     // 1. Update the case details
     await pool.query(
       `UPDATE cases
@@ -967,6 +993,11 @@ exports.updateCase = async (req, res) => {
       );
     }
 
+    // 4. Log status change if status was updated
+    if (status && oldStatus !== status) {
+      await logStatusChange(caseid, oldStatus, status, req.user.id, "Status updated via case edit");
+    }
+
     // Invalidate cache for this user's cases (all pages)
     if (global.caseCache) {
       const userId = req.user.id;
@@ -991,6 +1022,13 @@ exports.updateCaseStatus = async (req, res) => {
 
   try {
     if (!status) return res.status(400).json({ error: "Missing status field" });
+
+    // Get current status before update for logging
+    const currentCaseResult = await pool.query(
+      `SELECT status FROM cases WHERE caseid = $1`,
+      [caseid]
+    );
+    const oldStatus = currentCaseResult.rows[0]?.status;
 
     // Update both status and stage to keep them in sync
     await pool.query(
@@ -1029,6 +1067,11 @@ exports.updateCaseStatus = async (req, res) => {
         `UPDATE cases SET productname = $1, requirement_amount = $2 WHERE caseid = $3`,
         [products[0].product, String(products[0].amount), caseid]
       );
+    }
+
+    // Log status change
+    if (oldStatus !== status) {
+      await logStatusChange(caseid, oldStatus, status, req.user?.id, null);
     }
 
     // Invalidate cache for all users since case status is updated
@@ -1635,16 +1678,50 @@ exports.getCasesList = async (req, res) => {
       paramIndex++;
     }
 
-    // Date range filter
-    if (dateFrom) {
-      whereConditions.push(`c.createddate >= $${paramIndex}`);
-      values.push(dateFrom);
-      paramIndex++;
-    }
-    if (dateTo) {
-      whereConditions.push(`c.createddate <= $${paramIndex}::date + INTERVAL '1 day'`);
-      values.push(dateTo);
-      paramIndex++;
+    // Date range filter - use status_change_log for stage-specific date filtering
+    // When status filter is applied, filter by when the case entered that status
+    const hasStatusFilter = statusFilter && statusFilter.toLowerCase() !== 'cold';
+    
+    if (dateFrom || dateTo) {
+      if (hasStatusFilter) {
+        // Filter by when the case entered the selected status(es)
+        const statuses = statusFilter.split(',').map(s => s.trim()).filter(Boolean);
+        const statusPlaceholders = statuses.map((_, i) => `$${paramIndex + i}`);
+        
+        let statusDateCondition = `EXISTS (
+          SELECT 1 FROM status_change_log scl 
+          WHERE scl.caseid = c.caseid 
+          AND LOWER(scl.new_status) IN (${statusPlaceholders.map(p => `LOWER(${p})`).join(', ')})`;
+        
+        values.push(...statuses);
+        paramIndex += statuses.length;
+        
+        if (dateFrom) {
+          statusDateCondition += ` AND scl.changed_at >= $${paramIndex}`;
+          values.push(dateFrom);
+          paramIndex++;
+        }
+        if (dateTo) {
+          statusDateCondition += ` AND scl.changed_at <= $${paramIndex}::date + INTERVAL '1 day'`;
+          values.push(dateTo);
+          paramIndex++;
+        }
+        
+        statusDateCondition += `)`;
+        whereConditions.push(statusDateCondition);
+      } else {
+        // No status filter - use creation date as before
+        if (dateFrom) {
+          whereConditions.push(`c.createddate >= $${paramIndex}`);
+          values.push(dateFrom);
+          paramIndex++;
+        }
+        if (dateTo) {
+          whereConditions.push(`c.createddate <= $${paramIndex}::date + INTERVAL '1 day'`);
+          values.push(dateTo);
+          paramIndex++;
+        }
+      }
     }
 
     const whereClause = whereConditions.length > 0 
