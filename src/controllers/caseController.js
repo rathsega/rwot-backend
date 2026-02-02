@@ -398,7 +398,7 @@ exports.getDashboardStats = async (req, res) => {
 // Get user-filtered dashboard statistics (counts, ratios) - optimized endpoint with filters
 exports.getUserDashboardStats = async (req, res) => {
   try {
-    const { userId, dateFilter, dateFrom, dateTo } = req.query;
+    const { userId, userIds, dateFilter, dateFrom, dateTo } = req.query;
     
     // Build date range conditions
     let dateCondition = "";
@@ -408,14 +408,33 @@ exports.getUserDashboardStats = async (req, res) => {
     // Build WHERE clause parts
     const whereConditions = [];
     
-    // User filter - filter by case assignments or created by
-    if (userId) {
-      whereConditions.push(`(
-        EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to = $${paramIndex})
-        OR c.createdby = $${paramIndex}
-      )`);
-      values.push(parseInt(userId, 10));
-      paramIndex++;
+    // User filter - support both single userId (legacy) and multiple userIds
+    // Parse userIds as comma-separated string
+    let userIdArray = [];
+    if (userIds) {
+      userIdArray = userIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+    } else if (userId) {
+      userIdArray = [parseInt(userId, 10)].filter(id => !isNaN(id));
+    }
+    
+    if (userIdArray.length > 0) {
+      if (userIdArray.length === 1) {
+        whereConditions.push(`(
+          EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to = $${paramIndex})
+          OR c.createdby = $${paramIndex}
+        )`);
+        values.push(userIdArray[0]);
+        paramIndex++;
+      } else {
+        // Multiple users - use ANY for arrays
+        const placeholders = userIdArray.map((_, i) => `$${paramIndex + i}`);
+        whereConditions.push(`(
+          EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to IN (${placeholders.join(', ')}))
+          OR c.createdby IN (${placeholders.join(', ')})
+        )`);
+        values.push(...userIdArray);
+        paramIndex += userIdArray.length;
+      }
     }
     
     // Date filter logic
