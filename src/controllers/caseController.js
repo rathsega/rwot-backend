@@ -1780,7 +1780,9 @@ exports.getCasesList = async (req, res) => {
     search,
     dateFrom,
     dateTo,
-    cold
+    cold,
+    kamId,
+    kamName
   } = req.query;
   
   const pageNum = parseInt(page, 10) || 1;
@@ -1880,6 +1882,24 @@ exports.getCasesList = async (req, res) => {
         LOWER(c.clientname) LIKE LOWER($${paramIndex})
       )`);
       values.push(`%${search.trim()}%`);
+      paramIndex++;
+    }
+
+    // KAM filter - filter by assigned KAM
+    if (kamId) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM case_assignments ca 
+        WHERE ca.caseid = c.caseid AND ca.role = 'KAM' AND ca.assigned_to = $${paramIndex}
+      )`);
+      values.push(parseInt(kamId, 10));
+      paramIndex++;
+    } else if (kamName && kamName.trim()) {
+      whereConditions.push(`EXISTS (
+        SELECT 1 FROM case_assignments ca 
+        JOIN users u ON u.id = ca.assigned_to
+        WHERE ca.caseid = c.caseid AND ca.role = 'KAM' AND LOWER(u.name) LIKE LOWER($${paramIndex})
+      )`);
+      values.push(`%${kamName.trim()}%`);
       paramIndex++;
     }
 
