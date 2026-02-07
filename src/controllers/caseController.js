@@ -377,17 +377,116 @@ exports.getDashboardStats = async (req, res) => {
     const statsRow = statsResult.rows[0];
 
     // Get status counts with filter
-    const statusQuery = `
-      SELECT c.status, COUNT(*) as count
-      FROM cases c
-      ${whereClause}
-      GROUP BY c.status
-    `;
-    const statusResult = await pool.query(statusQuery, values);
-    const statusCounts = {};
-    statusResult.rows.forEach(row => {
-      statusCounts[row.status] = parseInt(row.count, 10);
-    });
+    // When date filter is applied, count cases that ENTERED each status during that period
+    // using status_change_log table
+    let statusCounts = {};
+    
+    // Determine if we have a date filter applied
+    const hasDateFilter = dateFilter && dateFilter !== 'all';
+    
+    if (hasDateFilter) {
+      // Parse the filter dates again for status_change_log query
+      const now = new Date();
+      let filterStart, filterEnd;
+      
+      switch(dateFilter) {
+        case 'today':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'yesterday':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59);
+          break;
+        case 'last7days':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'last30days':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 30);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'thisweek':
+          const dayOfWeek = now.getDay();
+          filterStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'thismonth':
+          filterStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'thisyear':
+          filterStart = new Date(now.getFullYear(), 0, 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'financialyear':
+          filterStart = now.getMonth() >= 3
+            ? new Date(now.getFullYear(), 3, 1)
+            : new Date(now.getFullYear() - 1, 3, 1);
+          filterEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+          break;
+        case 'lastfinancialyear':
+          filterStart = now.getMonth() >= 3
+            ? new Date(now.getFullYear() - 1, 3, 1)
+            : new Date(now.getFullYear() - 2, 3, 1);
+          filterEnd = now.getMonth() >= 3
+            ? new Date(now.getFullYear(), 2, 31, 23, 59, 59)
+            : new Date(now.getFullYear() - 1, 2, 31, 23, 59, 59);
+          break;
+        case 'custom':
+          if (dateFrom) filterStart = new Date(dateFrom);
+          if (dateTo) filterEnd = new Date(dateTo + 'T23:59:59');
+          break;
+      }
+      
+      // Use status_change_log to count cases that entered each status within the date range
+      let statusLogConditions = [];
+      let statusLogValues = [];
+      let statusLogParamIndex = 1;
+      
+      if (filterStart) {
+        statusLogConditions.push(`scl.changed_at >= $${statusLogParamIndex}`);
+        statusLogValues.push(filterStart);
+        statusLogParamIndex++;
+      }
+      if (filterEnd) {
+        statusLogConditions.push(`scl.changed_at <= $${statusLogParamIndex}`);
+        statusLogValues.push(filterEnd);
+        statusLogParamIndex++;
+      }
+      
+      const statusLogWhereClause = statusLogConditions.length > 0 
+        ? `WHERE ${statusLogConditions.join(' AND ')}` 
+        : '';
+      
+      const statusLogQuery = `
+        SELECT scl.new_status as status, COUNT(DISTINCT scl.caseid) as count
+        FROM status_change_log scl
+        ${statusLogWhereClause}
+        GROUP BY scl.new_status
+      `;
+      
+      const statusLogResult = await pool.query(statusLogQuery, statusLogValues);
+      statusLogResult.rows.forEach(row => {
+        if (row.status) {
+          statusCounts[row.status] = parseInt(row.count, 10);
+        }
+      });
+    } else {
+      // No date filter - use current status counts
+      const statusQuery = `
+        SELECT c.status, COUNT(*) as count
+        FROM cases c
+        ${whereClause}
+        GROUP BY c.status
+      `;
+      const statusResult = await pool.query(statusQuery, values);
+      statusResult.rows.forEach(row => {
+        if (row.status) {
+          statusCounts[row.status] = parseInt(row.count, 10);
+        }
+      });
+    }
 
     // Get banker acceptance, sanction, disbursement counts from bank_assignments with filter
     const bankerStatsQuery = `
