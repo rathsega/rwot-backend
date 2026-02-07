@@ -1964,6 +1964,11 @@ exports.getCasesList = async (req, res) => {
         (SELECT COUNT(*) FROM bank_assignments ba WHERE ba.caseid = c.caseid) AS bank_count,
         (SELECT COUNT(*) FROM comments cm WHERE cm.caseid = c.caseid) AS comment_count,
         (
+          SELECT cm.comment FROM comments cm 
+          WHERE cm.caseid = c.caseid 
+          ORDER BY cm.createdat DESC LIMIT 1
+        ) AS latest_comment,
+        (
           SELECT json_agg(json_build_object('bankid', ba.bankid, 'bank_name', b.name, 'status', ba.status))
           FROM bank_assignments ba
           JOIN banks b ON b.id = ba.bankid
