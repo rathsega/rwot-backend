@@ -3,6 +3,19 @@ const pool = require("../db");
 const { sendEmail, sendWhatsApp } = require("../utils/notifications");
 const { sendEmailNotification } = require("../utils/emailHelper");
 
+// Helper function to get cold case threshold from app_settings
+const getColdCaseThreshold = async () => {
+  try {
+    const result = await pool.query(
+      "SELECT setting_value FROM app_settings WHERE setting_key = 'cold_case_threshold_hours'"
+    );
+    return parseInt(result.rows[0]?.setting_value || 48, 10);
+  } catch (err) {
+    console.error("Error fetching cold case threshold:", err);
+    return 48; // Default fallback
+  }
+};
+
 // Helper function to log status changes
 const logStatusChange = async (caseid, oldStatus, newStatus, changedBy, remarks = null) => {
   if (oldStatus === newStatus) return; // No change, don't log
@@ -151,9 +164,11 @@ RWOT Team`
 // Get case counts by status for dashboard tabs
 exports.getCaseCounts = async (req, res) => {
   const userId = req.user.id;
-  const { coldThresholdHours = 48 } = req.query; // Accept threshold from frontend
   
   try {
+    // Get cold case threshold from app_settings
+    const coldThresholdHours = await getColdCaseThreshold();
+    
     const userResult = await pool.query(
       `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
       [userId]
@@ -186,16 +201,33 @@ exports.getCaseCounts = async (req, res) => {
     }
     // Admin and UW see all cases (no WHERE clause for counts)
 
-    const countQuery = `
+    // Cold case logic - cases inactive for more than threshold hours
+    // Exclude: open, no requirement, done, rejected, meeting done
+    const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
+    
+    // Build cold case condition to exclude from regular status counts
+    const coldCaseCondition = `(
+      LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})
+      AND c.status_updated_on IS NOT NULL 
+      AND c.status_updated_on < NOW() - INTERVAL '${coldThresholdHours} hours'
+    )`;
+    
+    // Count regular cases (excluding cold cases)
+    const regularWhereClause = whereClause 
+      ? `${whereClause} AND NOT ${coldCaseCondition}`
+      : `WHERE NOT ${coldCaseCondition}`;
+    
+    const regularCountQuery = `
       SELECT 
         c.status,
         COUNT(DISTINCT c.caseid) as count
       FROM cases c
-      ${whereClause}
+      ${regularWhereClause}
       GROUP BY c.status
     `;
-
-    const result = await pool.query(countQuery, values);
+    
+    const regularValues = [...values, ...coldExcludedStatuses];
+    const result = await pool.query(regularCountQuery, regularValues);
     
     // Convert to object for easier frontend use
     const counts = {};
@@ -204,20 +236,11 @@ exports.getCaseCounts = async (req, res) => {
       counts[row.status] = parseInt(row.count, 10);
       total += parseInt(row.count, 10);
     });
-    counts.total = total;
-
-    // Calculate cold cases count (cases inactive for more than threshold hours)
-    // Exclude: open, no requirement, done, rejected, meeting done
-    const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
-    const coldWhereClause = whereClause 
-      ? `${whereClause} AND LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})
-         AND c.status_updated_on IS NOT NULL 
-         AND c.status_updated_on < NOW() - INTERVAL '${parseInt(coldThresholdHours, 10)} hours'`
-      : `WHERE LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})
-         AND c.status_updated_on IS NOT NULL 
-         AND c.status_updated_on < NOW() - INTERVAL '${parseInt(coldThresholdHours, 10)} hours'`;
     
-    const coldValues = [...values, ...coldExcludedStatuses];
+    // Count cold cases separately
+    const coldWhereClause = whereClause 
+      ? `${whereClause} AND ${coldCaseCondition}`
+      : `WHERE ${coldCaseCondition}`;
     
     const coldCountQuery = `
       SELECT COUNT(DISTINCT c.caseid) as count
@@ -225,10 +248,14 @@ exports.getCaseCounts = async (req, res) => {
       ${coldWhereClause}
     `;
     
-    const coldResult = await pool.query(coldCountQuery, coldValues);
-    counts.cold = parseInt(coldResult.rows[0]?.count || 0, 10);
+    const coldResult = await pool.query(coldCountQuery, regularValues);
+    const coldCount = parseInt(coldResult.rows[0]?.count || 0, 10);
+    counts.cold = coldCount;
+    
+    // Total includes both regular and cold cases
+    counts.total = total + coldCount;
 
-    res.json({ counts });
+    res.json({ counts, coldThresholdHours });
   } catch (err) {
     console.error("Get Case Counts Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
@@ -1593,8 +1620,7 @@ exports.getCasesList = async (req, res) => {
     search,
     dateFrom,
     dateTo,
-    cold,
-    coldThresholdHours = 48
+    cold
   } = req.query;
   
   const pageNum = parseInt(page, 10) || 1;
@@ -1602,6 +1628,9 @@ exports.getCasesList = async (req, res) => {
   const offset = (pageNum - 1) * limitNum;
 
   try {
+    // Get cold case threshold from app_settings
+    const coldThresholdHours = await getColdCaseThreshold();
+    
     // Get user role
     const userResult = await pool.query(
       `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
@@ -1615,6 +1644,12 @@ exports.getCasesList = async (req, res) => {
     let whereConditions = [];
     let values = [];
     let paramIndex = 1;
+    
+    // Cold case exclusion statuses
+    const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
+    
+    // Determine if this is a cold case request
+    const isColdRequest = cold === 'true' || statusFilter?.toLowerCase() === 'cold';
 
     // Role-based filtering
     if (user.rolename === "Telecaller") {
@@ -1655,17 +1690,27 @@ exports.getCasesList = async (req, res) => {
         values.push(...statuses);
         paramIndex += statuses.length;
       }
+      
+      // IMPORTANT: Exclude cold cases from regular status tabs
+      // A case is cold if: status is not in excluded list AND status_updated_on < threshold hours ago
+      const coldExclusionPlaceholders = coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+      whereConditions.push(`NOT (
+        LOWER(c.status) NOT IN (${coldExclusionPlaceholders})
+        AND c.status_updated_on IS NOT NULL 
+        AND c.status_updated_on < NOW() - INTERVAL '${coldThresholdHours} hours'
+      )`);
+      values.push(...coldExcludedStatuses);
+      paramIndex += coldExcludedStatuses.length;
     }
 
     // Cold case filter - cases inactive for more than threshold hours
-    if (cold === 'true' || statusFilter?.toLowerCase() === 'cold') {
-      const thresholdHrs = parseInt(coldThresholdHours, 10) || 48;
-      const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
-      whereConditions.push(`LOWER(c.status) NOT IN (${coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+    if (isColdRequest) {
+      const coldPlaceholders = coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+      whereConditions.push(`LOWER(c.status) NOT IN (${coldPlaceholders})`);
       values.push(...coldExcludedStatuses);
       paramIndex += coldExcludedStatuses.length;
       whereConditions.push(`c.status_updated_on IS NOT NULL`);
-      whereConditions.push(`c.status_updated_on < NOW() - INTERVAL '${thresholdHrs} hours'`);
+      whereConditions.push(`c.status_updated_on < NOW() - INTERVAL '${coldThresholdHours} hours'`);
     }
 
     // Search filter (company name or client name)
