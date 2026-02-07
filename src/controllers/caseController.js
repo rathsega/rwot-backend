@@ -596,19 +596,80 @@ exports.getUserDashboardStats = async (req, res) => {
     const statsRow = statsResult.rows[0];
 
     // Get status counts with filters
-    const statusQuery = `
-      SELECT c.status, COUNT(*) as count
-      FROM cases c
-      ${whereClause}
-      GROUP BY c.status
-    `;
-    const statusResult = await pool.query(statusQuery, values);
-    const statusCounts = {};
-    statusResult.rows.forEach(row => {
-      if (row.status) {
-        statusCounts[row.status] = parseInt(row.count, 10);
+    // When date filter is applied, count cases that ENTERED each status during that period
+    // using status_change_log table
+    let statusCounts = {};
+    
+    if (filterDateFrom || filterDateTo) {
+      // Use status_change_log to count cases that entered each status within the date range
+      let statusLogConditions = [];
+      let statusLogValues = [];
+      let statusLogParamIndex = 1;
+      
+      // User filter for status_change_log
+      if (userIdArray.length > 0) {
+        if (userIdArray.length === 1) {
+          statusLogConditions.push(`(
+            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = scl.caseid AND ca.assigned_to = $${statusLogParamIndex})
+            OR EXISTS (SELECT 1 FROM cases c WHERE c.caseid = scl.caseid AND c.createdby = $${statusLogParamIndex})
+          )`);
+          statusLogValues.push(userIdArray[0]);
+          statusLogParamIndex++;
+        } else {
+          const placeholders = userIdArray.map((_, i) => `$${statusLogParamIndex + i}`);
+          statusLogConditions.push(`(
+            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = scl.caseid AND ca.assigned_to IN (${placeholders.join(', ')}))
+            OR EXISTS (SELECT 1 FROM cases c WHERE c.caseid = scl.caseid AND c.createdby IN (${placeholders.join(', ')}))
+          )`);
+          statusLogValues.push(...userIdArray);
+          statusLogParamIndex += userIdArray.length;
+        }
       }
-    });
+      
+      // Date filter on status change timestamp
+      if (filterDateFrom) {
+        statusLogConditions.push(`scl.changed_at >= $${statusLogParamIndex}`);
+        statusLogValues.push(filterDateFrom);
+        statusLogParamIndex++;
+      }
+      if (filterDateTo) {
+        statusLogConditions.push(`scl.changed_at <= $${statusLogParamIndex}`);
+        statusLogValues.push(filterDateTo);
+        statusLogParamIndex++;
+      }
+      
+      const statusLogWhereClause = statusLogConditions.length > 0 
+        ? `WHERE ${statusLogConditions.join(' AND ')}` 
+        : '';
+      
+      const statusLogQuery = `
+        SELECT scl.new_status as status, COUNT(DISTINCT scl.caseid) as count
+        FROM status_change_log scl
+        ${statusLogWhereClause}
+        GROUP BY scl.new_status
+      `;
+      
+      const statusLogResult = await pool.query(statusLogQuery, statusLogValues);
+      statusLogResult.rows.forEach(row => {
+        if (row.status) {
+          statusCounts[row.status] = parseInt(row.count, 10);
+        }
+      });
+    } else {
+      // No date filter - use current status counts
+      const statusQuery = `
+        SELECT c.status, COUNT(*) as count
+        FROM cases c
+        ${whereClause}
+        GROUP BY c.status
+      `;
+      const statusResult = await pool.query(statusQuery, values);
+      statusResult.rows.forEach(row => {
+        if (row.status) {
+          statusCounts[row.status] = parseInt(row.count, 10);
+        }
+      });
+    }
 
     // Get banker acceptance, sanction, disbursement counts with filters
     const bankerStatsQuery = `
