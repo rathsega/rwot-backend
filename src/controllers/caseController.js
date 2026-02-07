@@ -1966,7 +1966,7 @@ exports.getCasesList = async (req, res) => {
         (
           SELECT cm.comment FROM comments cm 
           WHERE cm.caseid = c.caseid 
-          ORDER BY cm.createdat DESC LIMIT 1
+          ORDER BY cm.created_at DESC LIMIT 1
         ) AS latest_comment,
         (
           SELECT json_agg(json_build_object('bankid', ba.bankid, 'bank_name', b.name, 'status', ba.status))
