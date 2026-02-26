@@ -16,6 +16,9 @@ router.get("/user-dashboard-stats", verifyToken, caseController.getUserDashboard
 // GET lightweight cases list with pagination (for performance)
 router.get("/list", verifyToken, caseController.getCasesList);
 
+// GET export all cases as Excel (Admin only)
+router.get("/export-excel", verifyToken, caseController.exportCasesExcel);
+
 // GET all or role-filtered cases
 router.get("/", verifyToken, caseController.getCases);
 

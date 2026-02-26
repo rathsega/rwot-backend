@@ -2,6 +2,7 @@ const { all } = require("axios");
 const pool = require("../db");
 const { sendEmail, sendWhatsApp } = require("../utils/notifications");
 const { sendEmailNotification } = require("../utils/emailHelper");
+const ExcelJS = require("exceljs");
 
 // Helper function to get cold case threshold from app_settings
 const getColdCaseThreshold = async () => {
@@ -545,6 +546,10 @@ exports.getUserDashboardStats = async (req, res) => {
   try {
     const { userId, userIds, dateFilter, dateFrom, dateTo } = req.query;
     
+    // Get cold case threshold
+    const coldThresholdHours = await getColdCaseThreshold();
+    const coldExcludedStatuses = ['open', 'no requirement', 'done', 'rejected', 'meeting done'];
+    
     // Build date range conditions
     let dateCondition = "";
     const values = [];
@@ -695,57 +700,78 @@ exports.getUserDashboardStats = async (req, res) => {
     const statsRow = statsResult.rows[0];
 
     // Get status counts with filters
-    // When date filter is applied, count cases that ENTERED each status during that period
-    // using status_change_log table
+    // When date filter is applied, count cases by CURRENT status where they ENTERED that status during the period
+    // This matches how getCasesList filters cases
+    // IMPORTANT: Exclude cold cases from counts to match the Overview Dashboard
     let statusCounts = {};
     
     if (filterDateFrom || filterDateTo) {
-      // Use status_change_log to count cases that entered each status within the date range
+      // Count cases by current status, but only if they entered that status within the date range
+      // This ensures counts match the Overview Dashboard's filtered results
       let statusLogConditions = [];
       let statusLogValues = [];
       let statusLogParamIndex = 1;
       
-      // User filter for status_change_log
+      // User filter
       if (userIdArray.length > 0) {
         if (userIdArray.length === 1) {
           statusLogConditions.push(`(
-            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = scl.caseid AND ca.assigned_to = $${statusLogParamIndex})
-            OR EXISTS (SELECT 1 FROM cases c WHERE c.caseid = scl.caseid AND c.createdby = $${statusLogParamIndex})
+            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to = $${statusLogParamIndex})
+            OR c.createdby = $${statusLogParamIndex}
           )`);
           statusLogValues.push(userIdArray[0]);
           statusLogParamIndex++;
         } else {
           const placeholders = userIdArray.map((_, i) => `$${statusLogParamIndex + i}`);
           statusLogConditions.push(`(
-            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = scl.caseid AND ca.assigned_to IN (${placeholders.join(', ')}))
-            OR EXISTS (SELECT 1 FROM cases c WHERE c.caseid = scl.caseid AND c.createdby IN (${placeholders.join(', ')}))
+            EXISTS (SELECT 1 FROM case_assignments ca WHERE ca.caseid = c.caseid AND ca.assigned_to IN (${placeholders.join(', ')}))
+            OR c.createdby IN (${placeholders.join(', ')})
           )`);
           statusLogValues.push(...userIdArray);
           statusLogParamIndex += userIdArray.length;
         }
       }
       
-      // Date filter on status change timestamp
+      // Check that case entered its current status within the date range
+      let dateConditions = [];
       if (filterDateFrom) {
-        statusLogConditions.push(`scl.changed_at >= $${statusLogParamIndex}`);
+        dateConditions.push(`scl.changed_at >= $${statusLogParamIndex}`);
         statusLogValues.push(filterDateFrom);
         statusLogParamIndex++;
       }
       if (filterDateTo) {
-        statusLogConditions.push(`scl.changed_at <= $${statusLogParamIndex}`);
+        dateConditions.push(`scl.changed_at <= $${statusLogParamIndex}`);
         statusLogValues.push(filterDateTo);
         statusLogParamIndex++;
       }
+      const dateConditionStr = dateConditions.length > 0 ? ` AND ${dateConditions.join(' AND ')}` : '';
+      
+      statusLogConditions.push(`EXISTS (
+        SELECT 1 FROM status_change_log scl 
+        WHERE scl.caseid = c.caseid 
+        AND LOWER(scl.new_status) = LOWER(c.status)
+        ${dateConditionStr}
+      )`);
+      
+      // Exclude cold cases
+      const coldExcludePlaceholders = coldExcludedStatuses.map((_, i) => `$${statusLogParamIndex + i}`).join(', ');
+      statusLogConditions.push(`NOT (
+        LOWER(c.status) NOT IN (${coldExcludePlaceholders})
+        AND c.status_updated_on IS NOT NULL 
+        AND c.status_updated_on < NOW() - INTERVAL '${coldThresholdHours} hours'
+      )`);
+      statusLogValues.push(...coldExcludedStatuses);
+      statusLogParamIndex += coldExcludedStatuses.length;
       
       const statusLogWhereClause = statusLogConditions.length > 0 
         ? `WHERE ${statusLogConditions.join(' AND ')}` 
         : '';
       
       const statusLogQuery = `
-        SELECT scl.new_status as status, COUNT(DISTINCT scl.caseid) as count
-        FROM status_change_log scl
+        SELECT c.status, COUNT(DISTINCT c.caseid) as count
+        FROM cases c
         ${statusLogWhereClause}
-        GROUP BY scl.new_status
+        GROUP BY c.status
       `;
       
       const statusLogResult = await pool.query(statusLogQuery, statusLogValues);
@@ -755,14 +781,26 @@ exports.getUserDashboardStats = async (req, res) => {
         }
       });
     } else {
-      // No date filter - use current status counts
+      // No date filter - use current status counts, excluding cold cases
+      // Build cold case exclusion condition
+      const coldExcludePlaceholders = coldExcludedStatuses.map((_, i) => `$${paramIndex + i}`).join(', ');
+      const coldExclusionCondition = `NOT (
+        LOWER(c.status) NOT IN (${coldExcludePlaceholders})
+        AND c.status_updated_on IS NOT NULL 
+        AND c.status_updated_on < NOW() - INTERVAL '${coldThresholdHours} hours'
+      )`;
+      
+      const statusWhereConditions = [...whereConditions, coldExclusionCondition];
+      const statusValues = [...values, ...coldExcludedStatuses];
+      const statusWhereClause = statusWhereConditions.length > 0 ? `WHERE ${statusWhereConditions.join(' AND ')}` : '';
+      
       const statusQuery = `
         SELECT c.status, COUNT(*) as count
         FROM cases c
-        ${whereClause}
+        ${statusWhereClause}
         GROUP BY c.status
       `;
-      const statusResult = await pool.query(statusQuery, values);
+      const statusResult = await pool.query(statusQuery, statusValues);
       statusResult.rows.forEach(row => {
         if (row.status) {
           statusCounts[row.status] = parseInt(row.count, 10);
@@ -1217,6 +1255,22 @@ exports.updateCaseStatus = async (req, res) => {
     );
     const oldStatus = currentCaseResult.rows[0]?.status;
 
+    // KAMs cannot move cases from 'Meeting Done' or any post-meeting-done status
+    // Only Operations (and Admin) can move cases forward from these statuses
+    const postMeetingDoneStatuses = [
+      'Meeting Done', 'Documentation Initiated', 'Documentation In Progress',
+      'Underwriting', 'One Pager', 'Banker Review', 'Login', 'PD',
+      'Sanctioned', 'Disbursement', 'Done'
+    ];
+    const userResult = await pool.query(
+      `SELECT users.*, roles.rolename FROM users JOIN roles ON users.roleid = roles.id WHERE users.id = $1`,
+      [req.user.id]
+    );
+    const userRole = userResult.rows[0]?.rolename;
+    if (userRole === 'KAM' && postMeetingDoneStatuses.some(s => s.toLowerCase() === (oldStatus || '').toLowerCase())) {
+      return res.status(403).json({ error: "KAMs are not allowed to change status of cases that are at 'Meeting Done' or beyond. Please contact the Operations team." });
+    }
+
     // Update both status and stage to keep them in sync
     await pool.query(
       `UPDATE cases SET status = $1, stage = $1, updatedat = NOW(), status_updated_on = NOW() WHERE caseid = $2`,
@@ -1370,6 +1424,8 @@ exports.getCaseById = async (req, res) => {
         kam_ca.assigned_to AS "assignedKam",
         ba.bankid,
         b.name AS bank_name,
+        b.email AS bank_email,
+        b.phone AS bank_phone,
         ba.status AS bank_assignment_status,
         ba.document_config
       FROM cases c
@@ -1402,6 +1458,8 @@ exports.getCaseById = async (req, res) => {
         caseData.bank_assignments.push({
           bankid: row.bankid,
           bank_name: row.bank_name,
+          bank_email: row.bank_email,
+          bank_phone: row.bank_phone,
           status: row.bank_assignment_status,
           document_config: row.document_config
         });
@@ -1780,7 +1838,8 @@ exports.getCasesList = async (req, res) => {
     search,
     dateFrom,
     dateTo,
-    cold
+    cold,
+    userIds
   } = req.query;
   
   const pageNum = parseInt(page, 10) || 1;
@@ -1836,6 +1895,26 @@ exports.getCasesList = async (req, res) => {
       )`);
     }
     // Admin and UW see all cases
+    
+    // User IDs filter - filter cases by creator (KAM/Telecaller)
+    if (userIds) {
+      const userIdArray = userIds.split(',').map(id => parseInt(id.trim(), 10)).filter(id => !isNaN(id));
+      if (userIdArray.length > 0) {
+        const creatorPlaceholders = userIdArray.map((_, i) => `$${paramIndex + i}`).join(', ');
+        const assigneePlaceholders = userIdArray.map((_, i) => `$${paramIndex + userIdArray.length + i}`).join(', ');
+        whereConditions.push(`(
+          c.createdby IN (${creatorPlaceholders})
+          OR EXISTS (
+            SELECT 1 FROM case_assignments ca 
+            WHERE ca.caseid = c.caseid 
+            AND ca.role IN ('KAM', 'Telecaller')
+            AND ca.assigned_to IN (${assigneePlaceholders})
+          )
+        )`);
+        values.push(...userIdArray, ...userIdArray);
+        paramIndex += userIdArray.length * 2;
+      }
+    }
 
     // Status filter - supports comma-separated statuses
     if (statusFilter && statusFilter.toLowerCase() !== 'cold') {
@@ -2035,5 +2114,272 @@ exports.getCasesList = async (req, res) => {
   } catch (err) {
     console.error("Get Cases List Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Export all cases to Excel (Admin only)
+exports.exportCasesExcel = async (req, res) => {
+  try {
+    // Fetch all cases with assignments, banks, comments
+    const casesResult = await pool.query(`
+      SELECT 
+        c.id, c.caseid, c.companyname, c.clientname, c.role,
+        c.status, c.productname, c.stage, c.bankname,
+        c.spocname, c.spocemail, c.spocphonenumber,
+        c.leadsource, c.date, c.time, c.phonenumber,
+        c.turnover, c.location, c.companyemail,
+        c.createddate, c.assigneddate, c.updatedat,
+        c.requirement_amount, c.status_updated_on, c.meeting_done_date,
+        creator.name AS created_by_name
+      FROM cases c
+      LEFT JOIN users creator ON creator.id = c.createdby
+      ORDER BY c.id DESC
+    `);
+
+    const allCases = casesResult.rows;
+    const caseIds = allCases.map(c => c.caseid);
+
+    if (caseIds.length === 0) {
+      return res.status(404).json({ error: "No cases found" });
+    }
+
+    // Fetch assignments for all cases
+    const assignmentsResult = await pool.query(`
+      SELECT ca.caseid, ca.role AS assigned_role, u.name AS assigned_name, u.email AS assigned_email
+      FROM case_assignments ca
+      LEFT JOIN users u ON u.id = ca.assigned_to
+      WHERE ca.caseid = ANY($1)
+    `, [caseIds]);
+
+    // Fetch bank assignments for all cases
+    const bankAssignmentsResult = await pool.query(`
+      SELECT ba.caseid, b.name AS bank_name, ba.status AS bank_status
+      FROM bank_assignments ba
+      LEFT JOIN banks b ON b.id = ba.bankid
+      WHERE ba.caseid = ANY($1)
+    `, [caseIds]);
+
+    // Fetch comments count and latest comment for all cases
+    const commentsResult = await pool.query(`
+      SELECT cm.caseid,
+        COUNT(*)::int AS comment_count,
+        (SELECT cm2.comment FROM comments cm2 WHERE cm2.caseid = cm.caseid ORDER BY cm2.created_at DESC LIMIT 1) AS latest_comment
+      FROM comments cm
+      WHERE cm.caseid = ANY($1)
+      GROUP BY cm.caseid
+    `, [caseIds]);
+
+    // Fetch documents count for all cases
+    const documentsResult = await pool.query(`
+      SELECT d.caseid, COUNT(*)::int AS document_count
+      FROM documents d
+      WHERE d.caseid = ANY($1)
+      GROUP BY d.caseid
+    `, [caseIds]);
+
+    // Build lookup maps
+    const assignmentsMap = {};
+    assignmentsResult.rows.forEach(a => {
+      if (!assignmentsMap[a.caseid]) assignmentsMap[a.caseid] = [];
+      assignmentsMap[a.caseid].push(a);
+    });
+
+    const bankAssignmentsMap = {};
+    bankAssignmentsResult.rows.forEach(b => {
+      if (!bankAssignmentsMap[b.caseid]) bankAssignmentsMap[b.caseid] = [];
+      bankAssignmentsMap[b.caseid].push(b);
+    });
+
+    const commentsMap = {};
+    commentsResult.rows.forEach(cm => {
+      commentsMap[cm.caseid] = cm;
+    });
+
+    const documentsMap = {};
+    documentsResult.rows.forEach(d => {
+      documentsMap[d.caseid] = d;
+    });
+
+    // Helper to get assignee by role
+    const getAssignee = (caseid, role) => {
+      const assignments = assignmentsMap[caseid] || [];
+      const found = assignments.find(a => a.assigned_role === role);
+      return found ? found.assigned_name || "" : "";
+    };
+
+    const getAssigneeEmail = (caseid, role) => {
+      const assignments = assignmentsMap[caseid] || [];
+      const found = assignments.find(a => a.assigned_role === role);
+      return found ? found.assigned_email || "" : "";
+    };
+
+    const formatDate = (value) => {
+      if (!value) return "";
+      try {
+        const d = new Date(value);
+        if (isNaN(d)) return "";
+        return d.toISOString().slice(0, 10);
+      } catch { return ""; }
+    };
+
+    const formatDateTime = (value) => {
+      if (!value) return "";
+      try {
+        const d = new Date(value);
+        if (isNaN(d)) return "";
+        return d.toISOString().slice(0, 19).replace("T", " ");
+      } catch { return ""; }
+    };
+
+    // Create Excel workbook
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "RWOT System";
+    workbook.created = new Date();
+
+    const worksheet = workbook.addWorksheet("All Cases Report", {
+      views: [{ state: "frozen", ySplit: 1 }]
+    });
+
+    // Define columns
+    worksheet.columns = [
+      { header: "Sl. No", key: "slno", width: 8 },
+      { header: "Case ID", key: "caseid", width: 16 },
+      { header: "RWOT ID", key: "id", width: 10 },
+      { header: "Company Name", key: "companyname", width: 25 },
+      { header: "Client Name", key: "clientname", width: 22 },
+      { header: "Role", key: "role", width: 14 },
+      { header: "Status", key: "status", width: 22 },
+      { header: "Stage", key: "stage", width: 18 },
+      { header: "Product Name", key: "productname", width: 20 },
+      { header: "Lead Source", key: "leadsource", width: 16 },
+      { header: "Turnover", key: "turnover", width: 14 },
+      { header: "Location", key: "location", width: 18 },
+      { header: "Requirement Amount", key: "requirement_amount", width: 20 },
+      { header: "Phone Number", key: "phonenumber", width: 16 },
+      { header: "Company Email", key: "companyemail", width: 25 },
+      { header: "SPOC Name", key: "spocname", width: 20 },
+      { header: "SPOC Email", key: "spocemail", width: 25 },
+      { header: "SPOC Phone", key: "spocphonenumber", width: 16 },
+      { header: "Created By", key: "created_by_name", width: 18 },
+      { header: "Created Date", key: "createddate", width: 14 },
+      { header: "Assigned Date", key: "assigneddate", width: 14 },
+      { header: "Meeting Schedule Date", key: "meeting_schedule_date", width: 20 },
+      { header: "Meeting Done Date", key: "meeting_done_date", width: 18 },
+      { header: "Status Updated On", key: "status_updated_on", width: 20 },
+      { header: "Last Updated", key: "updatedat", width: 20 },
+      { header: "Telecaller", key: "telecaller", width: 18 },
+      { header: "Telecaller Email", key: "telecaller_email", width: 25 },
+      { header: "KAM", key: "kam", width: 18 },
+      { header: "KAM Email", key: "kam_email", width: 25 },
+      { header: "Operations", key: "operations", width: 18 },
+      { header: "Operations Email", key: "operations_email", width: 25 },
+      { header: "Underwriting", key: "underwriting", width: 18 },
+      { header: "Bank Name (Case)", key: "bankname", width: 20 },
+      { header: "Banks Assigned", key: "banks_assigned", width: 30 },
+      { header: "Bank Statuses", key: "bank_statuses", width: 30 },
+      { header: "No. of Banks", key: "bank_count", width: 12 },
+      { header: "No. of Documents", key: "document_count", width: 16 },
+      { header: "No. of Comments", key: "comment_count", width: 16 },
+      { header: "Latest Comment", key: "latest_comment", width: 35 },
+    ];
+
+    // Style header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF2563EB" }
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    headerRow.height = 30;
+
+    // Add data rows
+    allCases.forEach((c, index) => {
+      const bankAssignments = bankAssignmentsMap[c.caseid] || [];
+      const commentInfo = commentsMap[c.caseid] || {};
+      const docInfo = documentsMap[c.caseid] || {};
+
+      worksheet.addRow({
+        slno: index + 1,
+        caseid: c.caseid || "",
+        id: c.id || "",
+        companyname: c.companyname || "",
+        clientname: c.clientname || "",
+        role: c.role || "",
+        status: c.status || "",
+        stage: c.stage || "",
+        productname: c.productname || "",
+        leadsource: c.leadsource || "",
+        turnover: c.turnover || "",
+        location: c.location || "",
+        requirement_amount: c.requirement_amount || "",
+        phonenumber: c.phonenumber || "",
+        companyemail: c.companyemail || "",
+        spocname: c.spocname || "",
+        spocemail: c.spocemail || "",
+        spocphonenumber: c.spocphonenumber || "",
+        created_by_name: c.created_by_name || "",
+        createddate: formatDate(c.createddate),
+        assigneddate: formatDate(c.assigneddate),
+        meeting_schedule_date: c.date || "",
+        meeting_done_date: formatDate(c.meeting_done_date),
+        status_updated_on: formatDateTime(c.status_updated_on),
+        updatedat: formatDateTime(c.updatedat),
+        telecaller: getAssignee(c.caseid, "Telecaller"),
+        telecaller_email: getAssigneeEmail(c.caseid, "Telecaller"),
+        kam: getAssignee(c.caseid, "KAM"),
+        kam_email: getAssigneeEmail(c.caseid, "KAM"),
+        operations: getAssignee(c.caseid, "Operations"),
+        operations_email: getAssigneeEmail(c.caseid, "Operations"),
+        underwriting: getAssignee(c.caseid, "Underwriting"),
+        bankname: c.bankname || "",
+        banks_assigned: bankAssignments.map(b => b.bank_name).filter(Boolean).join(", "),
+        bank_statuses: bankAssignments.map(b => `${b.bank_name}: ${b.bank_status || "N/A"}`).filter(Boolean).join(", "),
+        bank_count: bankAssignments.length,
+        document_count: docInfo.document_count || 0,
+        comment_count: commentInfo.comment_count || 0,
+        latest_comment: commentInfo.latest_comment || "",
+      });
+    });
+
+    // Apply alternating row colors and borders
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber > 1) {
+        row.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: rowNumber % 2 === 0 ? "FFF8FAFC" : "FFFFFFFF" }
+        };
+      }
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE2E8F0" } },
+          left: { style: "thin", color: { argb: "FFE2E8F0" } },
+          bottom: { style: "thin", color: { argb: "FFE2E8F0" } },
+          right: { style: "thin", color: { argb: "FFE2E8F0" } },
+        };
+        cell.alignment = { vertical: "middle", wrapText: true };
+      });
+    });
+
+    // Auto-filter
+    worksheet.autoFilter = {
+      from: "A1",
+      to: String.fromCharCode(64 + worksheet.columns.length) + "1"
+    };
+
+    // Set response headers
+    const filename = `Cases_Report_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+    // Write workbook to response
+    await workbook.xlsx.write(res);
+    res.end();
+
+  } catch (err) {
+    console.error("Export Cases Excel Error:", err);
+    res.status(500).json({ error: "Failed to generate Excel report" });
   }
 };
