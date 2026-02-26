@@ -18,13 +18,15 @@ exports.getCommentsByCaseId = async (req, res) => {
 
 // Add a comment
 exports.addComment = async (req, res) => {
-  const { caseid, comment } = req.body;
-  const userRole = req.user?.role || "Unknown"; // fallback in case we don't expand user profile fully
+  const { caseid, comment, text } = req.body;
+  const commentText = comment || text || "";
+  const userRole = req.user?.rolename || "Unknown";
+  const commentby = req.user?.name || req.user?.email || "Unknown";
 
   try {
     const result = await pool.query(
-      `INSERT INTO comments (caseid, comment, role) VALUES ($1, $2, $3) RETURNING *`,
-      [caseid, comment, userRole]
+      `INSERT INTO comments (caseid, comment, role, commentby, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING *`,
+      [caseid, commentText, userRole, commentby]
     );
     res.status(201).json({ message: "Comment added", comment: result.rows[0] });
   } catch (err) {
