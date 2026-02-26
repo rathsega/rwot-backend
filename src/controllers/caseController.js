@@ -1280,6 +1280,12 @@ exports.updateCaseStatus = async (req, res) => {
       return res.status(403).json({ error: "KAMs are not allowed to change status of cases that are at 'Meeting Done' or beyond. Please contact the Operations team." });
     }
 
+    // KAMs can only set these specific statuses
+    const kamAllowedTargetStatuses = ['Meeting Done', 'No Requirement'];
+    if (userRole === 'KAM' && !kamAllowedTargetStatuses.some(s => s.toLowerCase() === status.toLowerCase())) {
+      return res.status(403).json({ error: "KAMs can only change status to 'Meeting Done' or 'No Requirement'." });
+    }
+
     // Update both status and stage to keep them in sync
     await pool.query(
       `UPDATE cases SET status = $1, stage = $1, updatedat = NOW(), status_updated_on = NOW() WHERE caseid = $2`,
