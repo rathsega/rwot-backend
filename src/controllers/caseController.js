@@ -1036,8 +1036,18 @@ exports.getCases = async (req, res) => {
       bankId = bankRes.rows[0]?.id;
     }
 
+    // Batch fetch client credentials for all spoc emails
+    const spocEmails = [...new Set(cases.map(c => c.spocemail).filter(Boolean))];
+    const spocUsersMap = new Map();
+    if (spocEmails.length > 0) {
+      const spocUsersRes = await pool.query(`SELECT email, password FROM users WHERE email = ANY($1) AND roleid = 1`, [spocEmails]);
+      spocUsersRes.rows.forEach(u => spocUsersMap.set(u.email, u));
+    }
+
     for (const c of cases) {
-      c.hasSpocAdmin = false; // Skip this check for performance, or batch it if needed
+      const spocUser = spocUsersMap.get(c.spocemail);
+      c.hasSpocAdmin = !!spocUser;
+      c.clientCredentials = spocUser ? { email: spocUser.email, password: spocUser.password } : null;
       c.product_requirements = productReqsMap.get(c.caseid) || [];
 
       const allDocsForCase = docsMap.get(c.caseid) || [];
@@ -1069,7 +1079,6 @@ exports.getCases = async (req, res) => {
 
       c.comments = commentsMap.get(c.caseid) || [];
       c.bankDetails = banksMap.get(c.bankname) || null;
-      c.clientCredentials = null; // Skip for performance
     }
 
     // If case is assigned to a banker then keep that status as Banker Review and status is not rejected or disbursement or sanctioned or Done
@@ -1478,8 +1487,21 @@ exports.getCaseById = async (req, res) => {
     caseData.comments = commentsRes.rows;
     caseData.product_requirements = productReqsRes.rows;
     caseData.bankDetails = bankRes.rows[0] || null;
-    caseData.hasSpocAdmin = false;
-    caseData.clientCredentials = null;
+
+    // Check if client credentials have been generated for this case's SPOC
+    if (caseData.spocemail) {
+      const spocUserRes = await pool.query(`SELECT email, password FROM users WHERE email = $1 AND roleid = 1 LIMIT 1`, [caseData.spocemail]);
+      if (spocUserRes.rowCount > 0) {
+        caseData.hasSpocAdmin = true;
+        caseData.clientCredentials = { email: spocUserRes.rows[0].email, password: spocUserRes.rows[0].password };
+      } else {
+        caseData.hasSpocAdmin = false;
+        caseData.clientCredentials = null;
+      }
+    } else {
+      caseData.hasSpocAdmin = false;
+      caseData.clientCredentials = null;
+    }
 
     res.json({ case: caseData });
   } catch (err) {
