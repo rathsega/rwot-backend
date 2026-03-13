@@ -4,10 +4,13 @@ const pool = require("../db");
 exports.addBank = async (req, res) => {
   const { name, email, phone, products } = req.body;
 
+  // Ensure phone is an array
+  const phoneArray = Array.isArray(phone) ? phone : [phone].filter(p => p && p.trim());
+
   try {
     const result = await pool.query(
       "INSERT INTO banks (name, email, phone, products) VALUES ($1, $2, $3, $4) RETURNING *",
-      [name, email, phone, JSON.stringify(products)]
+      [name, email, JSON.stringify(phoneArray), JSON.stringify(products)]
     );
     res.status(201).json({ message: "Bank added", bank: result.rows[0] });
   } catch (err) {
@@ -73,10 +76,13 @@ exports.updateBank = async (req, res) => {
   const { id } = req.params;
   const { name, email, phone, products } = req.body;
 
+  // Ensure phone is an array
+  const phoneArray = Array.isArray(phone) ? phone : [phone].filter(p => p && p.trim());
+
   try {
     const result = await pool.query(
       "UPDATE banks SET name = $1, email = $2, phone = $3, products = $4 WHERE id = $5 RETURNING *",
-      [name, email, phone, JSON.stringify(products), id]
+      [name, email, JSON.stringify(phoneArray), JSON.stringify(products), id]
     );
 
     if (result.rows.length === 0) {

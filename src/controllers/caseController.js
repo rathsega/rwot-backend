@@ -1661,7 +1661,7 @@ exports.saveDocumentConfigs = async (req, res) => {
     );
 
     await pool.query(
-      `DELETE FROM case_assignments WHERE caseid = $1`,
+      `DELETE FROM case_assignments WHERE caseid = $1 and role = 'Banker'`,
       [caseid]
     );
 
